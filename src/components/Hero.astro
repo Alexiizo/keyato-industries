@@ -23,8 +23,7 @@ import packPlus from '../../design/Pack.02.png';
 
 		<h1 class="display-title cap-trim title" data-intro="down">Apprends à faire des visuels et à <br />les améliorer</h1>
 
-		<!-- Miniature + bouton lecture, remplacés par le lecteur YouTube (lecture auto en muet) une fois la page chargée.
-		     La vidéo se règle dans /admin. -->
+		<!-- Miniature + bouton lecture ; le lecteur YouTube n'est chargé qu'au clic. La vidéo se règle dans /admin. -->
 		<div class="video" data-intro="zoom">
 			<button class="poster" type="button" aria-label="Lire la vidéo de présentation">
 				<img src="/video/thumbnail" alt="" width="1280" height="720" decoding="async" />
@@ -399,23 +398,19 @@ import packPlus from '../../design/Pack.02.png';
 </style>
 
 <script>
-	/*
-	 * Lecteur YouTube en lecture automatique, en muet : les navigateurs bloquent la lecture automatique avec le son.
-	 * Il est chargé une fois la page chargée (pour ne pas la ralentir), ou tout de suite si on clique sur la miniature.
-	 * Pas de lecture automatique si le visiteur a demandé à réduire les animations : il clique pour lancer.
-	 */
+	// Au clic sur la miniature, le lecteur YouTube la remplace et démarre avec le son
 	const video = document.querySelector<HTMLElement>('.video');
 	const poster = video?.querySelector<HTMLButtonElement>('.poster');
 	let started = false;
 
-	async function start(autoplayMuted: boolean) {
+	async function start() {
 		if (!video || !poster || started) return;
 		started = true;
 		poster.disabled = true;
 		try {
 			const { src } = (await fetch('/video/embed.json').then((response) => response.json())) as { src: string };
 			const iframe = document.createElement('iframe');
-			iframe.src = autoplayMuted ? `${src}&mute=1` : src;
+			iframe.src = src;
 			iframe.title = 'Vidéo de présentation';
 			iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
 			iframe.allowFullscreen = true;
@@ -427,11 +422,5 @@ import packPlus from '../../design/Pack.02.png';
 		}
 	}
 
-	// Un clic lance la vidéo avec le son
-	poster?.addEventListener('click', () => start(false));
-
-	if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-		if (document.readyState === 'complete') start(true);
-		else window.addEventListener('load', () => start(true), { once: true });
-	}
+	poster?.addEventListener('click', start);
 </script>

@@ -3,7 +3,8 @@ import { getSite, youtubeIdFrom } from '../../lib/site';
 
 export const prerender = false;
 
-// Adresse du lecteur de la vidéo enregistrée dans /admin. En JSON plutôt qu'en redirection :
+// Adresse du lecteur de la vidéo enregistrée dans /admin, chargé au clic sur la miniature (autoplay : pas de second clic).
+// En JSON plutôt qu'en redirection :
 // l'attribut allow de l'iframe ne s'appliquerait pas à une adresse atteinte par redirection.
 export const GET: APIRoute = async () => {
 	const id = youtubeIdFrom((await getSite()).video);
