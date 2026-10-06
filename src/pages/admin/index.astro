@@ -1,0 +1,369 @@
+---
+import '@fontsource/londrina-solid/900.css';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { getSecret } from 'astro:env/server';
+import { getSite, saveSite, schema, youtubeIdFrom, type Site } from '../../lib/site';
+import faviconIco from '../../assets/icons/favicon-admin.ico?url';
+import faviconPng from '../../assets/icons/favicon-admin.png?url';
+
+// Back-office : modifie les liens, la vidéo et les réseaux (src/lib/site.ts). Mot de passe : variable ADMIN_PASSWORD.
+export const prerender = false;
+
+const password = getSecret('ADMIN_PASSWORD');
+const cookieName = 'keyato_admin';
+
+// Jeton de session dérivé du mot de passe : changer le mot de passe déconnecte tout le monde.
+const tokenFor = (secret: string) => createHmac('sha256', secret).update('keyato-admin').digest();
+const isValidToken = (value: string | undefined) => {
+	if (!password || !value) return false;
+	const expected = tokenFor(password);
+	const given = Buffer.from(value, 'hex');
+	return given.length === expected.length && timingSafeEqual(given, expected);
+};
+
+const flatten = (site: Site) => ({ ...site.links, video: site.video, ...site.socials });
+
+let loggedIn = isValidToken(Astro.cookies.get(cookieName)?.value);
+let loginError = '';
+let errors: Record<string, string> = {};
+let values: Record<string, string> | null = null;
+
+if (password && Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const field = (name: string) => String(form.get(name) ?? '').trim();
+	const action = field('action');
+
+	if (action === 'login') {
+		if (isValidToken(tokenFor(field('password')).toString('hex'))) {
+			Astro.cookies.set(cookieName, tokenFor(password).toString('hex'), {
+				httpOnly: true,
+				sameSite: 'strict',
+				secure: Astro.url.protocol === 'https:',
+				path: '/admin',
+				maxAge: 60 * 60 * 24 * 30,
+			});
+			return Astro.redirect('/admin', 303);
+		}
+		// Ralentit les essais de mot de passe à la chaîne
+		await new Promise((resolve) => setTimeout(resolve, 800));
+		loginError = 'Mot de passe incorrect.';
+	}
+
+	if (action === 'logout') {
+		Astro.cookies.delete(cookieName, { path: '/admin' });
+		return Astro.redirect('/admin', 303);
+	}
+
+	if (action === 'save' && loggedIn) {
+		const data = {
+			links: { basique: field('basique'), plus: field('plus'), patreon: field('patreon') },
+			video: field('video'),
+			socials: { youtube: field('youtube'), twitch: field('twitch'), instagram: field('instagram'), discord: field('discord') },
+		};
+		const result = schema.safeParse(data);
+		if (result.success) {
+			await saveSite(result.data);
+			return Astro.redirect('/admin?enregistre', 303);
+		}
+		errors = Object.fromEntries(result.error.issues.map((issue) => [String(issue.path.at(-1)), issue.message]));
+		values = flatten(data);
+	}
+}
+
+if (loggedIn && !values) values = flatten(await getSite());
+
+const saved = Astro.url.searchParams.has('enregistre') && !Object.keys(errors).length;
+const videoId = values ? youtubeIdFrom(values.video) : '';
+
+type Field = { name: string; label: string; hint?: string };
+
+const sections: { title: string; fields: Field[] }[] = [
+	{
+		title: 'Boutons Patreon',
+		fields: [
+			{ name: 'basique', label: 'Bouton « Pack Basique »', hint: 'Le bouton du haut et la carte du bas.' },
+			{ name: 'plus', label: 'Bouton « Pack Plus + »', hint: 'Le bouton du haut et la carte du bas.' },
+			{ name: 'patreon', label: 'Bouton « Voir le Patreon »', hint: "Aussi l'icône Patreon du bas de page." },
+		],
+	},
+	{
+		title: 'Vidéo de présentation',
+		fields: [{ name: 'video', label: 'Lien YouTube', hint: 'Par exemple https://www.youtube.com/watch?v=…' }],
+	},
+	{
+		title: 'Réseaux sociaux',
+		fields: [
+			{ name: 'youtube', label: 'YouTube' },
+			{ name: 'twitch', label: 'Twitch' },
+			{ name: 'instagram', label: 'Instagram' },
+			{ name: 'discord', label: 'Discord' },
+		],
+	},
+];
+---
+
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<link rel="icon" href={faviconIco} sizes="48x48" />
+		<link rel="icon" type="image/png" href={faviconPng} sizes="192x192" />
+		<title>Admin — Keyato</title>
+	</head>
+	<body>
+		<main class:list={['panel', { 'panel--login': !loggedIn }]}>
+			<h1>Admin du site</h1>
+
+			{
+				!password && (
+					<p class="notice">
+						L'admin n'est pas activé : définis la variable d'environnement <code>ADMIN_PASSWORD</code> (voir docs/admin.md).
+					</p>
+				)
+			}
+
+			{
+				password && !loggedIn && (
+					<form method="post" class="login">
+						<input type="hidden" name="action" value="login" />
+						<label for="password">Mot de passe</label>
+						<input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+						{loginError && <p class="error">{loginError}</p>}
+						<button class="button" type="submit">
+							Se connecter
+						</button>
+					</form>
+				)
+			}
+
+			{
+				loggedIn && values && (
+					<>
+						{saved && <p class="banner">C'est enregistré, le site est à jour.</p>}
+						{Object.keys(errors).length > 0 && <p class="banner banner--error">Rien n'a été enregistré : corrige les champs en rouge.</p>}
+
+						<form method="post">
+							<input type="hidden" name="action" value="save" />
+							{sections.map((section) => (
+								<fieldset>
+									<legend>{section.title}</legend>
+									{section.fields.map((field) => (
+										<div class="field">
+											<label for={field.name}>{field.label}</label>
+											<input
+												id={field.name}
+												name={field.name}
+												type="url"
+												required
+												value={values[field.name]}
+												aria-invalid={errors[field.name] ? 'true' : undefined}
+											/>
+											{errors[field.name] ? <p class="error">{errors[field.name]}</p> : field.hint && <p class="hint">{field.hint}</p>}
+											{field.name === 'video' && videoId && (
+												<img class="thumb" src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="Miniature de la vidéo actuelle" width="320" height="180" />
+											)}
+										</div>
+									))}
+								</fieldset>
+							))}
+							<div class="actions">
+								<button class="button" type="submit">
+									Enregistrer
+								</button>
+								<a href="/" target="_blank">
+									Voir le site
+								</a>
+							</div>
+						</form>
+
+						<form method="post" class="logout">
+							<input type="hidden" name="action" value="logout" />
+							<button type="submit">Se déconnecter</button>
+						</form>
+					</>
+				)
+			}
+		</main>
+	</body>
+</html>
+
+<style>
+	:global(*),
+	:global(*::before),
+	:global(*::after) {
+		box-sizing: border-box;
+	}
+
+	/* Le panneau est centré dans l'écran ; le formulaire, plus haut que l'écran, part simplement du haut */
+	:global(body) {
+		display: grid;
+		place-items: center;
+		margin: 0;
+		min-height: 100vh;
+		padding: 48px 16px;
+		background: #9068ec;
+		color: #260c69;
+		font-family: system-ui, sans-serif;
+		line-height: 1.4;
+	}
+
+	.panel {
+		width: 100%;
+		max-width: 640px;
+		padding: 32px;
+		border: 6px solid #260c69;
+		border-radius: 32px;
+		background: #ffe5f5;
+	}
+
+	h1,
+	legend,
+	.button {
+		font-family: 'Londrina Solid', system-ui, sans-serif;
+		font-weight: 900;
+	}
+
+	h1 {
+		margin: 0 0 16px;
+		font-size: 44px;
+		line-height: 1;
+	}
+
+	fieldset {
+		margin: 24px 0 0;
+		padding: 0;
+		border: 0;
+	}
+
+	legend {
+		margin-bottom: 4px;
+		font-size: 28px;
+	}
+
+	.field {
+		margin-top: 14px;
+	}
+
+	label {
+		display: block;
+		margin-bottom: 6px;
+		font-weight: 600;
+	}
+
+	input {
+		width: 100%;
+		padding: 12px 14px;
+		border: 3px solid #260c69;
+		border-radius: 14px;
+		background: #fff;
+		color: inherit;
+		font: inherit;
+	}
+
+	input:focus {
+		outline: 3px solid #7962e9;
+		outline-offset: 2px;
+	}
+
+	input[aria-invalid='true'] {
+		border-color: #c0143c;
+	}
+
+	.hint,
+	.error {
+		margin: 4px 0 0;
+		font-size: 14px;
+	}
+
+	.hint {
+		opacity: 0.75;
+	}
+
+	.error {
+		color: #c0143c;
+		font-weight: 600;
+	}
+
+	.thumb {
+		display: block;
+		width: 240px;
+		height: auto;
+		margin-top: 10px;
+		border: 3px solid #260c69;
+		border-radius: 12px;
+	}
+
+	.button {
+		padding: 10px 32px;
+		border: 0;
+		border-radius: 999px;
+		background: #7962e9;
+		color: #fff;
+		font-size: 26px;
+		cursor: pointer;
+		transition: scale 0.2s;
+	}
+
+	.button:hover {
+		scale: 1.04;
+	}
+
+	.panel--login {
+		max-width: 440px;
+		text-align: center;
+	}
+
+	.login label {
+		text-align: left;
+	}
+
+	.login .button {
+		margin-top: 16px;
+	}
+
+	.actions {
+		display: flex;
+		align-items: center;
+		gap: 24px;
+		margin-top: 32px;
+	}
+
+	.actions a {
+		color: inherit;
+		font-weight: 600;
+	}
+
+	.logout {
+		margin-top: 24px;
+		text-align: right;
+	}
+
+	.logout button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.banner {
+		margin: 0;
+		padding: 12px 16px;
+		border-radius: 14px;
+		background: #edce00;
+		font-weight: 600;
+	}
+
+	.banner--error {
+		background: #c0143c;
+		color: #fff;
+	}
+
+	.notice code {
+		font-weight: 600;
+	}
+</style>

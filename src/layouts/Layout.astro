@@ -1,0 +1,39 @@
+---
+import '@fontsource/londrina-solid/900.css';
+import 'lenis/dist/lenis.css';
+import '../styles/global.css';
+import faviconIco from '../assets/icons/favicon.ico?url';
+import faviconPng from '../assets/icons/favicon.png?url';
+
+interface Props {
+	title: string;
+	description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content={description} />
+		<link rel="icon" href={faviconIco} sizes="48x48" />
+		<link rel="icon" type="image/png" href={faviconPng} sizes="192x192" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+	</head>
+	<body>
+		<div class="page">
+			<slot />
+		</div>
+
+		<script>
+			import '../scripts/motion';
+
+			if (import.meta.env.DEV) import('../scripts/dev/mockup-overlay');
+		</script>
+	</body>
+</html>

@@ -1,0 +1,147 @@
+---
+import { Image } from 'astro:assets';
+import mainBg from '../../design/Sector.02.png';
+// Paper.png avec les bras prolongés (scripts/extend-paper.mjs)
+import paper from '../assets/paper-extended.png';
+import packBasique from '../../design/Pack.01.png';
+import packsDuo from '../../design/Pack.03.png';
+import PackCard from './PackCard.astro';
+---
+
+<section class="details">
+	<div class="bg">
+		<Image src={mainBg} alt="" widths={[1280, 1742]} sizes="100vw" />
+	</div>
+
+	<h2 class="display-title cap-trim title" data-parallax="-0.04" data-reveal="up" data-exit="right">Qu'y a-t-il dans ces vidéos&nbsp;?</h2>
+
+	<div class="paper" data-parallax="0.04" data-reveal="rise">
+		<Image src={paper} alt="" widths={[1000, 1960, 2940, 3484]} sizes="102vw" />
+		<div class="sr-only">
+			<p>
+				Mon objectif dans ces vidéos c'est vraiment de t'expliquer la base de la création visuelle en prenant en exemple 3 étapes
+				clefs de la création de mes vidéos.
+			</p>
+			<p>Dans le premier pack, tu trouveras 8 vidéos qui parleront :</p>
+			<ul>
+				<li>Pipeline</li>
+				<li>Méthode de travail</li>
+				<li>Matériel / logiciel</li>
+				<li>Audio</li>
+				<li>Montage</li>
+			</ul>
+			<p>et encore plein d'autres sujets.</p>
+			<p>
+				Si t'es intéressé à aller plus loin, dans le deuxième pack, tu pourras retrouver en plus : une introduction à la 3D, une
+				review montage de ce que je fais, des conseils YouTube avec les insides et encore d'autres bonus.
+			</p>
+			<p>Je rappelle que ce n'est pas un tuto dessin mais que j'expliquerai plutôt un process et une méthode.</p>
+			<p>Si t'es intéressé, hésite pas à aller check le Patreon. :)</p>
+		</div>
+	</div>
+
+	<div class="cards">
+		<PackCard variant="basique" href="/go/basique" label="Pack Basique" pack={packBasique} />
+		<PackCard variant="plus" href="/go/plus" label="Pack Plus +" pack={packsDuo} />
+	</div>
+
+	<a class="patreon" href="/go/patreon" data-reveal="pop"><span class="cap-trim">Voir le Patreon</span></a>
+</section>
+
+<style>
+	/*
+	 * Composition de la maquette, resserrée : titre à 70 %, papier à 75 %, cartes à 55 %, bouton Patreon à 50 %.
+	 * Passe par-dessus le hero au scroll.
+	 */
+	.details {
+		position: relative;
+		z-index: 1;
+		height: calc(2125 * var(--u));
+		overflow: clip;
+		background: var(--c-main-bg);
+	}
+
+	/* Liseré blanc entre le rose et le violet */
+	.details::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 1;
+		height: calc(7 * var(--u));
+		background: var(--c-white);
+	}
+
+	.details :global(img) {
+		width: 100%;
+		height: auto;
+	}
+
+	.bg {
+		position: absolute;
+		top: calc(4 * var(--u));
+		left: 0;
+		width: 100%;
+	}
+
+	.title {
+		position: absolute;
+		top: calc(128 * var(--u));
+		left: 0;
+		right: 0;
+		font-size: calc(74.2 * var(--u));
+	}
+
+	/* Papier à 75 %, centré ; les bras prolongés dépassent un peu des bords de la page */
+	.paper {
+		position: absolute;
+		top: calc(280 * var(--u));
+		left: calc(-18.55 * var(--u));
+		width: calc(1957.1 * var(--u));
+	}
+
+	/* Cotes des cartes : maquette × --cu (voir PackCard.astro), groupe centré comme sur la maquette */
+	.cards {
+		--cu: calc(var(--u) * 0.55);
+		position: absolute;
+		top: calc(1657 * var(--u));
+		left: calc(513.45 * var(--u));
+	}
+
+	.patreon {
+		--cu: calc(var(--u) * 0.5);
+		position: absolute;
+		top: calc(1993 * var(--u));
+		left: calc(737 * var(--u));
+		width: calc(890 * var(--cu));
+		height: calc(165 * var(--cu));
+		padding-top: calc(47 * var(--cu));
+		border-radius: calc(82.5 * var(--cu));
+		background: var(--c-patreon-bg);
+		color: var(--c-patreon-text);
+		font-size: calc(100.3 * var(--cu));
+		text-align: center;
+		text-transform: uppercase;
+		white-space: nowrap;
+		outline: none;
+		transition: scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	/* scale plutôt que transform : le transform est réservé à l'apparition au scroll */
+	.patreon:hover,
+	.patreon:focus-visible {
+		scale: 1.05;
+	}
+
+	.patreon:focus-visible {
+		outline: calc(4 * var(--u)) solid var(--c-white);
+		outline-offset: calc(4 * var(--u));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.patreon {
+			transition: none;
+		}
+	}
+</style>

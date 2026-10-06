@@ -1,0 +1,309 @@
+---
+import { Image } from 'astro:assets';
+import heroBg from '../../design/Sector.01.png';
+import keyato from '../../design/KeyaMoney.png';
+import signs from '../../design/Sign.png';
+import packBasique from '../../design/Pack.01.png';
+import packPlus from '../../design/Pack.02.png';
+---
+
+<section class="hero">
+	<div class="scene" data-cover="0.5" data-cover-delay="0.15">
+		<div class="bg">
+			<Image src={heroBg} alt="" widths={[1280, 1920, 2592]} sizes="100vw" priority />
+		</div>
+
+		<div class="keyato" data-parallax="-0.08" data-exit="left">
+			<Image data-intro="left" src={keyato} alt="" widths={[362, 724, 1664]} sizes="18.9vw" loading="eager" />
+		</div>
+
+		<div class="signs" data-parallax="0.08" data-exit="right">
+			<Image data-intro="drop" src={signs} alt="3 étapes, 11 vidéos pour apprendre ma technique" widths={[352, 704, 1472]} sizes="18.3vw" loading="eager" />
+		</div>
+
+		<h1 class="display-title cap-trim title" data-intro="down">Apprends à faire des visuels et à<br />les améliorer</h1>
+
+		<!-- Miniature + bouton lecture ; le lecteur YouTube n'est chargé qu'au clic. La vidéo se règle dans /admin. -->
+		<div class="video" data-intro="zoom">
+			<button class="poster" type="button" aria-label="Lire la vidéo de présentation">
+				<img src="/video/thumbnail" alt="" width="1280" height="720" decoding="async" />
+				<span class="play" aria-hidden="true">
+					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" /></svg>
+				</span>
+			</button>
+		</div>
+
+		<div class="ctas">
+			<a class="cta cta--basique" href="/go/basique" data-intro="up">
+				<span class="packs">
+					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="7.1vw" loading="eager" /></span>
+				</span>
+				<span class="btn"><span class="cap-trim">Pack Basique</span></span>
+			</a>
+
+			<a class="cta cta--plus" href="/go/plus" data-intro="up">
+				<span class="packs">
+					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="7.1vw" loading="eager" /></span>
+					<span class="pack pack--plus"><Image src={packPlus} alt="" widths={[92, 184, 333]} sizes="4.8vw" loading="eager" /></span>
+				</span>
+				<span class="btn"><span class="cap-trim">Pack Plus +</span></span>
+			</a>
+		</div>
+	</div>
+</section>
+
+<style>
+	/*
+	 * Composition de la maquette, resserrée pour que les boutons du hero restent visibles sur un écran 1080p :
+	 * titre à 70 %, vidéo 900px au lieu de 965, personnage et panneaux à 80 %, boutons à 55 %.
+	 */
+	.hero {
+		position: relative;
+		height: calc(960 * var(--u));
+		overflow: clip;
+		background: var(--c-hero-bg);
+	}
+
+	.scene {
+		position: absolute;
+		inset: 0;
+	}
+
+	.scene :global(img) {
+		width: 100%;
+		height: auto;
+	}
+
+	.bg {
+		position: absolute;
+		top: calc(5 * var(--u));
+		left: 0;
+		width: 100%;
+	}
+
+	.title {
+		position: absolute;
+		top: calc(45 * var(--u));
+		left: 0;
+		right: 0;
+		font-size: calc(64.4 * var(--u));
+		--lh: 0.8913;
+	}
+
+	.video {
+		position: absolute;
+		top: calc(205 * var(--u));
+		left: calc(510 * var(--u));
+		width: calc(900 * var(--u));
+		height: calc(509 * var(--u));
+		border-radius: calc(42 * var(--u));
+		overflow: hidden;
+	}
+
+	/* Le cadre noir est un calque posé par-dessus la vidéo : il en recouvre proprement les bords arrondis */
+	.video::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		border: calc(7 * var(--u)) solid var(--c-black);
+		border-radius: inherit;
+		pointer-events: none;
+	}
+
+	/* L'iframe est créée par le script au clic, d'où :global */
+	.video :global(iframe) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border: 0;
+	}
+
+	.poster {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 100%;
+		padding: 0;
+		border: 0;
+		background: var(--c-black);
+		cursor: pointer;
+	}
+
+	.scene .poster :global(img) {
+		height: 100%;
+		object-fit: cover;
+	}
+
+	/* Bouton lecture dans le style des boutons de la page */
+	.play {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		display: grid;
+		place-items: center;
+		width: calc(150 * var(--u));
+		height: calc(150 * var(--u));
+		margin: calc(-75 * var(--u)) 0 0 calc(-75 * var(--u));
+		border: calc(8 * var(--u)) solid var(--c-white);
+		border-radius: 50%;
+		background: var(--c-basique);
+		box-shadow: 0 0 0 calc(5 * var(--u)) var(--c-navy);
+		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.play svg {
+		width: 48%;
+		margin-left: 8%;
+		fill: var(--c-white);
+	}
+
+	.poster:hover .play,
+	.poster:focus-visible .play {
+		transform: scale(1.1);
+	}
+
+	.poster:focus-visible {
+		outline: none;
+	}
+
+	.poster:disabled {
+		cursor: progress;
+	}
+
+	/* Personnage et panneaux sont coupés par les bords de la maquette : on les colle aux bords de la page */
+	.keyato {
+		position: absolute;
+		top: calc(206 * var(--u));
+		left: 0;
+		width: calc(362.1 * var(--u));
+	}
+
+	.signs {
+		position: absolute;
+		top: calc(195 * var(--u));
+		right: 0;
+		width: calc(352.1 * var(--u));
+	}
+
+	/*
+	 * Boutons + boîte(s) de pack posée(s) derrière.
+	 * Cotes de la maquette (origine du groupe en 473, 802) multipliées par --cu.
+	 */
+	.ctas {
+		--cu: calc(var(--u) * 0.55);
+		position: absolute;
+		top: calc(769 * var(--u));
+		left: calc(690.1 * var(--u));
+	}
+
+	.cta {
+		position: absolute;
+		top: 0;
+		width: calc(429 * var(--cu));
+		height: calc(274 * var(--cu));
+		outline: none;
+	}
+
+	.cta--basique {
+		left: 0;
+	}
+
+	.cta--plus {
+		left: calc(536 * var(--cu));
+	}
+
+	.packs {
+		position: absolute;
+		inset: 0;
+		transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.pack {
+		position: absolute;
+	}
+
+	.pack--basique {
+		top: 0;
+		width: calc(248.2 * var(--cu));
+	}
+
+	.cta--basique .pack--basique {
+		left: calc(127 * var(--cu));
+	}
+
+	.cta--plus .pack--basique {
+		left: calc(84 * var(--cu));
+	}
+
+	.pack--plus {
+		top: calc(49 * var(--cu));
+		left: calc(199 * var(--cu));
+		width: calc(166.3 * var(--cu));
+	}
+
+	.btn {
+		position: absolute;
+		top: calc(154 * var(--cu));
+		left: 0;
+		width: 100%;
+		height: calc(120 * var(--cu));
+		padding: calc(32 * var(--cu)) 0 0 calc(19 * var(--cu));
+		border-radius: calc(60 * var(--cu));
+		color: var(--c-white);
+		font-size: calc(65.5 * var(--cu));
+		text-align: center;
+		white-space: nowrap;
+		transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.cta--basique .btn {
+		background: var(--c-basique);
+	}
+
+	.cta--plus .btn {
+		background: var(--c-plus);
+	}
+
+	.cta:hover .btn,
+	.cta:focus-visible .btn {
+		transform: scale(1.05);
+	}
+
+	.cta:hover .packs,
+	.cta:focus-visible .packs {
+		transform: translateY(calc(-24 * var(--cu)));
+	}
+
+	.cta:focus-visible .btn {
+		outline: calc(4 * var(--u)) solid var(--c-navy);
+		outline-offset: calc(4 * var(--u));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.packs,
+		.btn,
+		.play {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	// Remplace la miniature par le lecteur YouTube au clic, en lecture automatique
+	const poster = document.querySelector<HTMLButtonElement>('.video .poster');
+	poster?.addEventListener('click', async () => {
+		poster.disabled = true;
+		try {
+			const { src } = await fetch('/video/embed.json').then((response) => response.json());
+			const iframe = document.createElement('iframe');
+			iframe.src = src;
+			iframe.title = 'Vidéo de présentation';
+			iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+			iframe.allowFullscreen = true;
+			poster.replaceWith(iframe);
+		} catch {
+			poster.disabled = false;
+		}
+	});
+</script>

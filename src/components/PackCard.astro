@@ -1,0 +1,121 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+	variant: 'basique' | 'plus';
+	href: string;
+	label: string;
+	pack: ImageMetadata;
+}
+
+const { variant, href, label, pack } = Astro.props;
+---
+
+<a class:list={['card', `card--${variant}`]} href={href} data-reveal={variant === 'basique' ? 'left' : 'right'}>
+	<span class="top">
+		<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="10.2vw" /></span>
+	</span>
+	<span class="band"><span class="cap-trim">{label}</span></span>
+</a>
+
+<style>
+	/* Cotes de la maquette multipliées par --cu, l'échelle des cartes définie par le parent (.cards dans Details.astro) */
+	.card {
+		position: absolute;
+		top: 0;
+		display: block;
+		width: calc(708 * var(--cu));
+		height: calc(511 * var(--cu));
+		border: calc(8 * var(--cu)) solid var(--border);
+		border-radius: calc(75 * var(--cu));
+		overflow: hidden;
+		outline: none;
+		transition: scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.card--basique {
+		left: 0;
+		--border: var(--c-card-basique-border);
+		--top: var(--c-card-basique-top);
+		--light: var(--c-card-basique-light);
+		--band: var(--c-basique);
+	}
+
+	.card--plus {
+		left: calc(935 * var(--cu));
+		--border: var(--c-card-plus-border);
+		--top: var(--c-card-plus-top);
+		--light: var(--c-card-plus-light);
+		--band: var(--c-card-plus-band);
+	}
+
+	/* Aquarelle approchée en attendant les textures des cartes */
+	.top {
+		position: relative;
+		display: block;
+		height: calc(344 * var(--cu));
+		background:
+			radial-gradient(ellipse 45% 55% at 88% 50%, var(--light), transparent),
+			radial-gradient(ellipse 40% 50% at 8% 50%, color-mix(in srgb, var(--light) 50%, transparent), transparent),
+			var(--top);
+	}
+
+	.pack {
+		position: absolute;
+		transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.pack :global(img) {
+		width: 100%;
+		height: auto;
+	}
+
+	.card--basique .pack {
+		top: calc(49 * var(--cu));
+		left: calc(206 * var(--cu));
+		width: calc(356.6 * var(--cu));
+	}
+
+	.card--plus .pack {
+		top: calc(42 * var(--cu));
+		left: calc(181 * var(--cu));
+		width: calc(340.2 * var(--cu));
+	}
+
+	.band {
+		position: relative;
+		display: block;
+		height: calc(151 * var(--cu));
+		padding-top: calc(35 * var(--cu));
+		background: var(--band);
+		color: var(--c-white);
+		font-size: calc(90.5 * var(--cu));
+		text-align: center;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	/* scale plutôt que transform : le transform est réservé à l'apparition au scroll */
+	.card:hover,
+	.card:focus-visible {
+		scale: 1.03;
+	}
+
+	.card:hover .pack,
+	.card:focus-visible .pack {
+		transform: translateY(calc(-30 * var(--cu)));
+	}
+
+	.card:focus-visible {
+		outline: calc(4 * var(--cu)) solid var(--c-white);
+		outline-offset: calc(4 * var(--cu));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.card,
+		.pack {
+			transition: none;
+		}
+	}
+</style>

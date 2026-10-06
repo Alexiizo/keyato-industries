@@ -1,0 +1,143 @@
+/*
+ * Échelle maquette
+ * La maquette fait 1920px de large. Toute dimension s'écrit en "px maquette" :
+ *   width: calc(964 * var(--u));
+ * --u vaut 1px quand .page fait 1920px de large, et suit la largeur de la page
+ * (hors scrollbar, grâce aux unités cqw sur le conteneur .page) : la composition reste pleine largeur.
+ * Les éléments surdimensionnés de la maquette sont réduits (titres, boutons, cartes, papier...) :
+ * leur facteur est indiqué dans chaque composant et récapitulé dans docs/maquette.md.
+ */
+:root {
+	--u: calc(100cqw / 1920);
+
+	/* Couleurs : fiche Hexcode.png de Keyato, complétée par des relevés sur la maquette */
+	--c-navy: #260c69; /* titres, bordure carte Basique */
+	--c-white: #ffffff;
+	--c-black: #000000; /* cadre vidéo */
+
+	--c-hero-bg: #ffe5f5; /* aplat sous l'aquarelle rose (5 premiers px de la maquette) */
+	--c-main-bg: #9068ec; /* sous l'aquarelle violette */
+
+	--c-basique: #7962e9; /* bouton Pack Basique + bandeau carte Basique */
+	--c-plus: #edce00; /* bouton Pack Plus + */
+
+	--c-card-basique-top: #cbb4ff;
+	--c-card-basique-light: #deceff;
+	--c-card-basique-border: #260c69;
+	--c-card-plus-top: #ffc9ea;
+	--c-card-plus-light: #ffeaf9;
+	--c-card-plus-band: #d486b6;
+	--c-card-plus-border: #3b0024;
+
+	--c-patreon-bg: #ffe5f5;
+	--c-patreon-text: #563c82;
+
+	--c-footer: #563c82;
+
+	/*
+	 * Police d'affichage (titres, boutons, cartes).
+	 * Londrina Solid est une remplaçante en attendant la vraie police de la maquette.
+	 * En changeant de police, mettre à jour ses métriques verticales (en em, lues dans la table OS/2 ou hhea) :
+	 * c'est ce qui permet à .cap-trim de caler les textes au pixel.
+	 */
+	--font-display: 'Londrina Solid', system-ui, sans-serif;
+	--fd-weight: 900;
+	--fd-asc: 0.945;
+	--fd-desc: 0.238;
+	--fd-cap: 0.712;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+body {
+	background: var(--c-footer);
+	color: var(--c-navy);
+	font-family: var(--font-display);
+	font-weight: var(--fd-weight);
+	line-height: 1.2;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+img,
+picture,
+video,
+svg {
+	display: block;
+	max-width: 100%;
+}
+
+button,
+input {
+	font: inherit;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+/* Seul conteneur de requête de la page : c'est lui qui donne sa valeur à --u. */
+.page {
+	container-type: inline-size;
+	overflow-x: clip;
+}
+
+/*
+ * Rogne la boîte du texte du haut des capitales à la ligne de base (technique "capsize"),
+ * pour positionner un texte avec les coordonnées relevées sur la maquette.
+ * --lh : interligne sans unité.
+ */
+.cap-trim {
+	display: block;
+	line-height: var(--lh, 1);
+}
+
+.cap-trim::before,
+.cap-trim::after {
+	content: '';
+	display: table;
+}
+
+.cap-trim::before {
+	margin-bottom: calc((var(--fd-asc) - var(--fd-cap) + (var(--lh, 1) - var(--fd-asc) - var(--fd-desc)) / 2) * -1em);
+}
+
+.cap-trim::after {
+	margin-top: calc((var(--fd-desc) + (var(--lh, 1) - var(--fd-asc) - var(--fd-desc)) / 2) * -1em);
+}
+
+/* Titres bleu nuit à contour blanc (6px visibles pour un titre de 92px sur la maquette) */
+.display-title {
+	color: var(--c-navy);
+	text-align: center;
+	white-space: nowrap;
+	-webkit-text-stroke: 0.13em var(--c-white);
+	paint-order: stroke fill;
+	stroke-linejoin: round;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
