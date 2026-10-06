@@ -16,7 +16,7 @@ import PackCard from './PackCard.astro';
 
 	<h2 class="display-title cap-trim title" data-parallax="-0.04" data-reveal="up" data-exit="right">Qu'y a-t-il dans ces vidéos&nbsp;?</h2>
 
-	<div class="paper" data-parallax="0.04" data-reveal="rise">
+	<div class="paper" data-parallax="0.04" data-parallax-mobile="0" data-reveal="rise">
 		<Image src={paper} alt="" widths={[1000, 1960, 2940, 3484]} sizes="(max-width: 899px) 1px, 102vw" />
 		<!-- Texte de la feuille : lu par les lecteurs d'écran sur ordinateur (il est dessiné dans l'image), affiché sur mobile -->
 		<div class="paper-text">
@@ -167,7 +167,8 @@ import PackCard from './PackCard.astro';
 			flex-direction: column;
 			align-items: center;
 			height: auto;
-			padding: calc(56 * var(--m)) 16px calc(64 * var(--m));
+			/* Même espace sous le bouton Patreon qu'entre la feuille et les cartes (56px) */
+			padding: calc(56 * var(--m)) 16px calc(56 * var(--m));
 		}
 
 		.bg {
@@ -249,7 +250,8 @@ import PackCard from './PackCard.astro';
 			--cu: calc(var(--m) * 0.2459);
 			width: calc(1456 * var(--cu));
 			height: calc(511 * var(--cu));
-			margin-top: calc(48 * var(--m));
+			/* 56px visibles sous la feuille : + 6 d'ombre + 4.5 de débord dû à l'inclinaison de la feuille */
+			margin-top: calc((56 + 6 + 4.5) * var(--m));
 		}
 
 		.patreon {

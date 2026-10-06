@@ -37,9 +37,13 @@ function layoutBox(el: HTMLElement) {
  * - au chargement s'il est visible dans le premier écran,
  * - en bas de page s'il est dans le dernier écran,
  * - sinon quand il est centré dans l'écran.
+ * data-parallax-mobile (facultatif) remplace la vitesse dans la mise en page mobile, par exemple "0" pour la couper.
  */
+const mobile = window.matchMedia('(max-width: 899px)');
+
 function parallax(el: HTMLElement) {
-	const speed = Number(el.dataset.parallax) || 0;
+	// Relue à chaque recalcul de ScrollTrigger (redimensionnement), donc suit le passage mobile / ordinateur
+	const speedOf = () => Number(mobile.matches ? (el.dataset.parallaxMobile ?? el.dataset.parallax) : el.dataset.parallax) || 0;
 	const range = () => {
 		const { top, height } = layoutBox(el);
 		const vh = window.innerHeight;
@@ -50,9 +54,9 @@ function parallax(el: HTMLElement) {
 
 	gsap.fromTo(
 		el,
-		{ y: () => speed * (range().start - range().rest) },
+		{ y: () => speedOf() * (range().start - range().rest) },
 		{
-			y: () => speed * (range().end - range().rest),
+			y: () => speedOf() * (range().end - range().rest),
 			ease: 'none',
 			scrollTrigger: {
 				start: () => range().start,
