@@ -295,7 +295,7 @@ import packPlus from '../../design/Pack.02.png';
 	poster?.addEventListener('click', async () => {
 		poster.disabled = true;
 		try {
-			const { src } = await fetch('/video/embed.json').then((response) => response.json());
+			const { src } = (await fetch('/video/embed.json').then((response) => response.json())) as { src: string };
 			const iframe = document.createElement('iframe');
 			iframe.src = src;
 			iframe.title = 'Vidéo de présentation';

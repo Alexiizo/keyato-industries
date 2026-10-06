@@ -1,12 +1,13 @@
 # Keyato — page de vente « Améliorer ses Visu »
 
-Astro + GSAP (ScrollTrigger) + Lenis.
+Astro + GSAP (ScrollTrigger) + Lenis, hébergé sur Cloudflare Workers.
 
 ```sh
 npm install
 npm run dev      # http://localhost:4321
-npm run build    # page statique + serveur Node dans dist/
-npm start        # lance le serveur de production (ADMIN_PASSWORD requis pour /admin)
+npm run build    # page statique + Worker dans dist/
+npm run preview  # teste le build dans le moteur de Cloudflare
+npm run deploy   # build + déploiement (normalement fait par Cloudflare à chaque push)
 ```
 
 - Maquette : `design/maquette-1920.png`, relevés dans `docs/maquette.md`

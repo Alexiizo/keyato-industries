@@ -1,0 +1,15 @@
+// Cloudflare Workers : la page est servie en fichiers statiques, /admin, /go/* et /video/* par le Worker.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "keyato-industries",
+	"compatibility_date": "2026-10-01",
+	// node:crypto (session de l'admin)
+	"compatibility_flags": ["nodejs_compat"],
+	"kv_namespaces": [
+		// Contenu modifié depuis /admin. Sans "id", l'espace KV est créé automatiquement au premier déploiement.
+		{ "binding": "SITE" }
+	],
+	// Garde les variables définies dans le dashboard Cloudflare (ADMIN_PASSWORD) à chaque déploiement
+	"keep_vars": true,
+	"observability": { "enabled": true }
+}

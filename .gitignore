@@ -17,8 +17,9 @@ pnpm-debug.log*
 .env
 .env.production
 
-# contenu modifié depuis /admin
-.data/
+# état local de Wrangler (copie locale du KV en dev)
+.wrangler/
+.dev.vars*
 
 # macOS-specific files
 .DS_Store

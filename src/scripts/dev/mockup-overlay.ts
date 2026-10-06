@@ -31,13 +31,13 @@ Object.assign(img.style, {
 	zIndex: '2147483647',
 	pointerEvents: 'none',
 });
-document.body.append(img);
+document.body.appendChild(img);
 
 // Le calque prend la taille et la place de la colonne de contenu (.canvas, 1920px maquette).
 // Quand la page est plus large que la colonne, seuls les éléments accrochés aux bords ne s'y superposent pas.
 const probe = document.createElement('div');
 probe.style.cssText = 'position:absolute;visibility:hidden;width:calc(1920 * var(--u))';
-document.querySelector('.page')?.append(probe);
+document.querySelector('.page')?.appendChild(probe);
 
 function place() {
 	const width = probe.offsetWidth;

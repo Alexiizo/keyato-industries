@@ -1,14 +1,13 @@
 import { z } from 'astro/zod';
-import { createStorage } from 'unstorage';
-import fsDriver from 'unstorage/drivers/fs';
+import { env } from 'cloudflare:workers';
 import defaults from '../data/site.json';
 
 /*
  * Contenu modifiable depuis /admin : liens des boutons, vidéo, réseaux sociaux.
- * Valeurs par défaut : src/data/site.json. Les modifications sont enregistrées dans .data/site.json,
- * à conserver d'un déploiement à l'autre (autre hébergement : changer le driver unstorage).
+ * Valeurs par défaut : src/data/site.json. Les modifications sont enregistrées dans l'espace KV « SITE » de Cloudflare
+ * (wrangler.jsonc) ; en dev, dans une copie locale (.wrangler/state).
  */
-const storage = createStorage({ driver: fsDriver({ base: './.data' }) });
+const KEY = 'site';
 
 const url = z.url({ protocol: /^https?$/, error: 'Lien invalide : il doit commencer par https://' });
 
@@ -28,12 +27,12 @@ export const schema = z.object({
 export type Site = z.infer<typeof schema>;
 
 export async function getSite(): Promise<Site> {
-	const saved = schema.safeParse(await storage.getItem('site.json'));
+	const saved = schema.safeParse(await env.SITE.get(KEY, 'json'));
 	return saved.success ? saved.data : schema.parse(defaults);
 }
 
 export async function saveSite(site: Site) {
-	await storage.setItem('site.json', site);
+	await env.SITE.put(KEY, JSON.stringify(site));
 }
 
 // Destination des liens /go/<clé> : boutons (basique, plus, patreon) et réseaux (youtube, twitch, instagram, discord)
