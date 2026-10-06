@@ -13,10 +13,12 @@ const { variant, href, label, pack } = Astro.props;
 ---
 
 <a class:list={['card', `card--${variant}`]} href={href} target="_blank" rel="noopener" data-reveal={variant === 'basique' ? 'left' : 'right'}>
-	<span class="top">
-		<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="(max-width: 899px) 23vw, 10.2vw" /></span>
+	<span class="face">
+		<span class="top">
+			<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="(max-width: 899px) 23vw, 10.2vw" /></span>
+		</span>
+		<span class="band"><span class="cap-trim">{label}</span></span>
 	</span>
-	<span class="band"><span class="cap-trim">{label}</span></span>
 </a>
 
 <style>
@@ -27,10 +29,16 @@ const { variant, href, label, pack } = Astro.props;
 		display: block;
 		width: calc(708 * var(--cu));
 		height: calc(511 * var(--cu));
+		outline: none;
+	}
+
+	/* La carte visible. Le survol agit sur elle et non sur le lien : GSAP anime le lien (apparition au scroll). */
+	.face {
+		display: block;
+		height: 100%;
 		border: calc(8 * var(--cu)) solid var(--border);
 		border-radius: calc(75 * var(--cu));
 		overflow: hidden;
-		outline: none;
 		transition: scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 
@@ -96,9 +104,8 @@ const { variant, href, label, pack } = Astro.props;
 		white-space: nowrap;
 	}
 
-	/* scale plutôt que transform : le transform est réservé à l'apparition au scroll */
-	.card:hover,
-	.card:focus-visible {
+	.card:hover .face,
+	.card:focus-visible .face {
 		scale: 1.03;
 	}
 
@@ -113,7 +120,7 @@ const { variant, href, label, pack } = Astro.props;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.card,
+		.face,
 		.pack {
 			transition: none;
 		}

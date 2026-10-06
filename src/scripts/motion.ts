@@ -27,7 +27,8 @@ function layoutBox(el: HTMLElement) {
  * - parallaxe et recouvrement : y
  * - intro et apparition : xPercent, yPercent, rotation, scale, opacity
  * - sortie : x, rotation, filter (sur un élément sans apparition, ou un wrapper)
- * Les survols CSS d'un élément animé utilisent les propriétés scale / translate, jamais transform.
+ * GSAP force aussi scale / translate / rotate à none sur les éléments qu'il anime : les effets de survol CSS
+ * vont sur un élément enfant (ex. .pill du bouton Patreon, .face des cartes).
  */
 
 /*

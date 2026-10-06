@@ -47,7 +47,7 @@ import PackCard from './PackCard.astro';
 		<PackCard variant="plus" href="/go/plus" label="Pack Plus +" pack={packsDuo} />
 	</div>
 
-	<a class="patreon" href="/go/patreon" target="_blank" rel="noopener" data-reveal="pop"><span class="cap-trim">Voir le Patreon</span></a>
+	<a class="patreon" href="/go/patreon" target="_blank" rel="noopener" data-reveal="pop"><span class="pill"><span class="cap-trim">Voir le Patreon</span></span></a>
 </section>
 
 <style>
@@ -116,8 +116,20 @@ import PackCard from './PackCard.astro';
 		position: absolute;
 		top: calc(1993 * var(--u));
 		left: calc(737 * var(--u));
+		display: block;
 		width: calc(890 * var(--cu));
 		height: calc(165 * var(--cu));
+		outline: none;
+	}
+
+	/*
+	 * Le bouton visible. Les effets de survol sont sur lui et non sur le lien : GSAP anime le lien (apparition au scroll)
+	 * et y force aussi scale / translate / rotate à none.
+	 */
+	.pill {
+		position: relative;
+		display: block;
+		height: 100%;
 		padding-top: calc(47 * var(--cu));
 		border-radius: calc(82.5 * var(--cu));
 		background: var(--c-patreon-bg);
@@ -126,24 +138,76 @@ import PackCard from './PackCard.astro';
 		text-align: center;
 		text-transform: uppercase;
 		white-space: nowrap;
-		outline: none;
-		transition: scale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+		overflow: hidden;
+		transition:
+			scale 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+			translate 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+			rotate 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+			box-shadow 0.25s ease-out,
+			color 0.2s;
 	}
 
-	/* scale plutôt que transform : le transform est réservé à l'apparition au scroll */
-	.patreon:hover,
-	.patreon:focus-visible {
-		scale: 1.05;
+	/* Reflet qui traverse le bouton au survol */
+	.pill::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.85) 50%, transparent 70%);
+		transform: translateX(-120%);
+		pointer-events: none;
 	}
 
-	.patreon:focus-visible {
+	/*
+	 * Survol : le bouton se soulève en s'inclinant, une ombre bleu nuit apparaît dessous et un reflet le traverse.
+	 * Seulement avec une souris : sur écran tactile, le survol resterait collé après un tap.
+	 */
+	@media (hover: hover) {
+		.patreon:hover .pill {
+			scale: 1.06;
+			translate: 0 calc(-10 * var(--cu));
+			rotate: -2deg;
+			box-shadow: 0 calc(14 * var(--cu)) 0 var(--c-navy);
+			color: var(--c-basique);
+		}
+
+		.patreon:hover .pill::after {
+			animation: patreon-shine 0.7s ease-out;
+		}
+	}
+
+	.patreon:focus-visible .pill {
+		scale: 1.06;
+		color: var(--c-basique);
 		outline: calc(4 * var(--u)) solid var(--c-white);
 		outline-offset: calc(4 * var(--u));
 	}
 
+	/* Au clic, le bouton s'enfonce sur son ombre */
+	.patreon:active .pill {
+		scale: 1.02;
+		translate: 0;
+		box-shadow: 0 calc(4 * var(--cu)) 0 var(--c-navy);
+		transition-duration: 0.08s;
+	}
+
+	@keyframes patreon-shine {
+		to {
+			transform: translateX(120%);
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
-		.patreon {
+		.pill {
 			transition: none;
+		}
+
+		.patreon:hover .pill {
+			translate: none;
+			rotate: none;
+		}
+
+		.patreon:hover .pill::after {
+			animation: none;
 		}
 	}
 
