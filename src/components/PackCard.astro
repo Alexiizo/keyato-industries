@@ -12,9 +12,9 @@ interface Props {
 const { variant, href, label, pack } = Astro.props;
 ---
 
-<a class:list={['card', `card--${variant}`]} href={href} data-reveal={variant === 'basique' ? 'left' : 'right'}>
+<a class:list={['card', `card--${variant}`]} href={href} target="_blank" rel="noopener" data-reveal={variant === 'basique' ? 'left' : 'right'}>
 	<span class="top">
-		<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="10.2vw" /></span>
+		<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="(max-width: 899px) 23vw, 10.2vw" /></span>
 	</span>
 	<span class="band"><span class="cap-trim">{label}</span></span>
 </a>
@@ -116,6 +116,13 @@ const { variant, href, label, pack } = Astro.props;
 		.card,
 		.pack {
 			transition: none;
+		}
+	}
+
+	/* Mobile : cartes plus rapprochées (écart de 40px maquette au lieu de 227) */
+	@media (max-width: 899px) {
+		.card--plus {
+			left: calc(748 * var(--cu));
 		}
 	}
 </style>

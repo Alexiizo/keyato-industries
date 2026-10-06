@@ -10,6 +10,12 @@
 :root {
 	--u: calc(100cqw / 1920);
 
+	/*
+	 * Mise en page mobile (max-width: 899px) : composition empilée, dimensions en "px mobile".
+	 * --m vaut 1px sur un écran de 390px de large ; au-delà de 560px (tablette), la colonne ne grandit plus.
+	 */
+	--m: calc(min(100cqw, 560px) / 390);
+
 	/* Couleurs : fiche Hexcode.png de Keyato, complétée par des relevés sur la maquette */
 	--c-navy: #260c69; /* titres, bordure carte Basique */
 	--c-white: #ffffff;
@@ -33,6 +39,9 @@
 	--c-patreon-text: #563c82;
 
 	--c-footer: #563c82;
+
+	--c-paper: #f2f0d8; /* feuille (version mobile en texte) */
+	--c-ink: #1a1a1a;
 
 	/*
 	 * Police d'affichage (titres, boutons, cartes).

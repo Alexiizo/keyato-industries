@@ -14,16 +14,17 @@ import packPlus from '../../design/Pack.02.png';
 		</div>
 
 		<div class="keyato" data-parallax="-0.08" data-exit="left">
-			<Image data-intro="left" src={keyato} alt="" widths={[362, 724, 1664]} sizes="18.9vw" loading="eager" />
+			<Image data-intro="left" src={keyato} alt="" widths={[362, 724, 1664]} sizes="(max-width: 899px) 43vw, 18.9vw" loading="eager" />
 		</div>
 
 		<div class="signs" data-parallax="0.08" data-exit="right">
-			<Image data-intro="drop" src={signs} alt="3 étapes, 11 vidéos pour apprendre ma technique" widths={[352, 704, 1472]} sizes="18.3vw" loading="eager" />
+			<Image data-intro="drop" src={signs} alt="3 étapes, 11 vidéos pour apprendre ma technique" widths={[352, 704, 1472]} sizes="(max-width: 899px) 40vw, 18.3vw" loading="eager" />
 		</div>
 
-		<h1 class="display-title cap-trim title" data-intro="down">Apprends à faire des visuels et à<br />les améliorer</h1>
+		<h1 class="display-title cap-trim title" data-intro="down">Apprends à faire des visuels et à <br />les améliorer</h1>
 
-		<!-- Miniature + bouton lecture ; le lecteur YouTube n'est chargé qu'au clic. La vidéo se règle dans /admin. -->
+		<!-- Miniature + bouton lecture, remplacés par le lecteur YouTube (lecture auto en muet) une fois la page chargée.
+		     La vidéo se règle dans /admin. -->
 		<div class="video" data-intro="zoom">
 			<button class="poster" type="button" aria-label="Lire la vidéo de présentation">
 				<img src="/video/thumbnail" alt="" width="1280" height="720" decoding="async" />
@@ -34,17 +35,17 @@ import packPlus from '../../design/Pack.02.png';
 		</div>
 
 		<div class="ctas">
-			<a class="cta cta--basique" href="/go/basique" data-intro="up">
+			<a class="cta cta--basique" href="/go/basique" target="_blank" rel="noopener" data-intro="up">
 				<span class="packs">
-					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="7.1vw" loading="eager" /></span>
+					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
 				</span>
 				<span class="btn"><span class="cap-trim">Pack Basique</span></span>
 			</a>
 
-			<a class="cta cta--plus" href="/go/plus" data-intro="up">
+			<a class="cta cta--plus" href="/go/plus" target="_blank" rel="noopener" data-intro="up">
 				<span class="packs">
-					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="7.1vw" loading="eager" /></span>
-					<span class="pack pack--plus"><Image src={packPlus} alt="" widths={[92, 184, 333]} sizes="4.8vw" loading="eager" /></span>
+					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
+					<span class="pack pack--plus"><Image src={packPlus} alt="" widths={[92, 184, 333]} sizes="(max-width: 899px) 17vw, 4.8vw" loading="eager" /></span>
 				</span>
 				<span class="btn"><span class="cap-trim">Pack Plus +</span></span>
 			</a>
@@ -111,16 +112,18 @@ import packPlus from '../../design/Pack.02.png';
 		pointer-events: none;
 	}
 
-	/* L'iframe est créée par le script au clic, d'où :global */
+	/* L'iframe est créée par le script, d'où :global. La miniature reste au-dessus jusqu'au chargement du lecteur. */
 	.video :global(iframe) {
-		display: block;
+		position: absolute;
+		inset: 0;
 		width: 100%;
 		height: 100%;
 		border: 0;
 	}
 
 	.poster {
-		position: relative;
+		position: absolute;
+		inset: 0;
 		display: block;
 		width: 100%;
 		height: 100%;
@@ -287,23 +290,148 @@ import packPlus from '../../design/Pack.02.png';
 			transition: none;
 		}
 	}
+
+	/*
+	 * Mobile : composition empilée (titre, vidéo, boutons, puis personnage et panneaux côte à côte),
+	 * dimensions en px mobile (--m, voir global.css). La colonne fait 358px sur un écran de 390px.
+	 */
+	@media (max-width: 899px) {
+		.hero {
+			height: auto;
+		}
+
+		.scene {
+			position: relative;
+			inset: auto;
+			display: grid;
+			grid-template-columns: [full-start] minmax(16px, 1fr) [content-start] minmax(0, calc(358 * var(--m))) [content-end] minmax(16px, 1fr) [full-end];
+			row-gap: calc(28 * var(--m));
+			padding: calc(32 * var(--m)) 0 calc(56 * var(--m));
+		}
+
+		.bg {
+			inset: 0;
+			width: auto;
+		}
+
+		.scene .bg :global(img) {
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.title {
+			position: relative;
+			top: auto;
+			grid-column: content;
+			grid-row: 1;
+			font-size: calc(36 * var(--m));
+			white-space: normal;
+			text-wrap: balance;
+			--lh: 1.05;
+		}
+
+		.title br {
+			display: none;
+		}
+
+		.video {
+			position: relative;
+			top: auto;
+			left: auto;
+			grid-column: content;
+			grid-row: 2;
+			width: auto;
+			height: auto;
+			aspect-ratio: 16 / 9;
+			border-radius: calc(20 * var(--m));
+		}
+
+		.video::after {
+			border-width: calc(4 * var(--m));
+		}
+
+		.play {
+			width: calc(68 * var(--m));
+			height: calc(68 * var(--m));
+			margin: calc(-34 * var(--m)) 0 0 calc(-34 * var(--m));
+			border-width: calc(4 * var(--m));
+			box-shadow: 0 0 0 calc(3 * var(--m)) var(--c-navy);
+		}
+
+		/* Deux boutons de 171px côte à côte (cotes de la maquette × --cu) */
+		.ctas {
+			--cu: calc(var(--m) * 0.39);
+			position: relative;
+			top: auto;
+			left: auto;
+			grid-column: content;
+			grid-row: 3;
+			justify-self: center;
+			width: calc(898 * var(--cu));
+			height: calc(274 * var(--cu));
+		}
+
+		.cta--plus {
+			left: calc(469 * var(--cu));
+		}
+
+		/* Personnage collé au bord gauche, panneaux au bord droit, sur la même ligne */
+		.keyato,
+		.signs {
+			position: relative;
+			top: auto;
+			grid-column: full;
+			grid-row: 4;
+			align-self: end;
+		}
+
+		.keyato {
+			justify-self: start;
+			width: calc(165 * var(--m));
+		}
+
+		.signs {
+			right: auto;
+			justify-self: end;
+			width: calc(155 * var(--m));
+		}
+	}
 </style>
 
 <script>
-	// Remplace la miniature par le lecteur YouTube au clic, en lecture automatique
-	const poster = document.querySelector<HTMLButtonElement>('.video .poster');
-	poster?.addEventListener('click', async () => {
+	/*
+	 * Lecteur YouTube en lecture automatique, en muet : les navigateurs bloquent la lecture automatique avec le son.
+	 * Il est chargé une fois la page chargée (pour ne pas la ralentir), ou tout de suite si on clique sur la miniature.
+	 * Pas de lecture automatique si le visiteur a demandé à réduire les animations : il clique pour lancer.
+	 */
+	const video = document.querySelector<HTMLElement>('.video');
+	const poster = video?.querySelector<HTMLButtonElement>('.poster');
+	let started = false;
+
+	async function start(autoplayMuted: boolean) {
+		if (!video || !poster || started) return;
+		started = true;
 		poster.disabled = true;
 		try {
 			const { src } = (await fetch('/video/embed.json').then((response) => response.json())) as { src: string };
 			const iframe = document.createElement('iframe');
-			iframe.src = src;
+			iframe.src = autoplayMuted ? `${src}&mute=1` : src;
 			iframe.title = 'Vidéo de présentation';
 			iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
 			iframe.allowFullscreen = true;
-			poster.replaceWith(iframe);
+			iframe.addEventListener('load', () => poster.remove(), { once: true });
+			video.insertBefore(iframe, video.firstChild);
 		} catch {
+			started = false;
 			poster.disabled = false;
 		}
-	});
+	}
+
+	// Un clic lance la vidéo avec le son
+	poster?.addEventListener('click', () => start(false));
+
+	if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		if (document.readyState === 'complete') start(true);
+		else window.addEventListener('load', () => start(true), { once: true });
+	}
 </script>

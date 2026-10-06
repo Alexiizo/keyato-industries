@@ -1,4 +1,5 @@
 ---
+import '@fontsource/sniglet/800.css';
 import { Image } from 'astro:assets';
 import mainBg from '../../design/Sector.02.png';
 // Paper.png avec les bras prolongés (scripts/extend-paper.mjs)
@@ -16,8 +17,9 @@ import PackCard from './PackCard.astro';
 	<h2 class="display-title cap-trim title" data-parallax="-0.04" data-reveal="up" data-exit="right">Qu'y a-t-il dans ces vidéos&nbsp;?</h2>
 
 	<div class="paper" data-parallax="0.04" data-reveal="rise">
-		<Image src={paper} alt="" widths={[1000, 1960, 2940, 3484]} sizes="102vw" />
-		<div class="sr-only">
+		<Image src={paper} alt="" widths={[1000, 1960, 2940, 3484]} sizes="(max-width: 899px) 1px, 102vw" />
+		<!-- Texte de la feuille : lu par les lecteurs d'écran sur ordinateur (il est dessiné dans l'image), affiché sur mobile -->
+		<div class="paper-text">
 			<p>
 				Mon objectif dans ces vidéos c'est vraiment de t'expliquer la base de la création visuelle en prenant en exemple 3 étapes
 				clefs de la création de mes vidéos.
@@ -45,7 +47,7 @@ import PackCard from './PackCard.astro';
 		<PackCard variant="plus" href="/go/plus" label="Pack Plus +" pack={packsDuo} />
 	</div>
 
-	<a class="patreon" href="/go/patreon" data-reveal="pop"><span class="cap-trim">Voir le Patreon</span></a>
+	<a class="patreon" href="/go/patreon" target="_blank" rel="noopener" data-reveal="pop"><span class="cap-trim">Voir le Patreon</span></a>
 </section>
 
 <style>
@@ -142,6 +144,118 @@ import PackCard from './PackCard.astro';
 	@media (prefers-reduced-motion: reduce) {
 		.patreon {
 			transition: none;
+		}
+	}
+
+	.paper-text {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+	}
+
+	/*
+	 * Mobile : composition empilée, dimensions en px mobile (--m, voir global.css).
+	 * Le texte de la feuille serait illisible dans l'image : il est affiché en vrai texte sur une feuille en CSS.
+	 */
+	@media (max-width: 899px) {
+		.details {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			height: auto;
+			padding: calc(56 * var(--m)) 16px calc(64 * var(--m));
+		}
+
+		.bg {
+			inset: 0;
+			width: auto;
+		}
+
+		.details .bg :global(img) {
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.title,
+		.paper,
+		.cards,
+		.patreon {
+			position: relative;
+			top: auto;
+			left: auto;
+		}
+
+		.title {
+			right: auto;
+			font-size: calc(36 * var(--m));
+			white-space: normal;
+			text-wrap: balance;
+			--lh: 1.05;
+		}
+
+		.paper {
+			width: 100%;
+			max-width: calc(358 * var(--m));
+			margin-top: calc(36 * var(--m));
+		}
+
+		.paper :global(img) {
+			display: none;
+		}
+
+		.paper-text {
+			position: static;
+			width: auto;
+			height: auto;
+			margin: 0;
+			overflow: visible;
+			clip: auto;
+			white-space: normal;
+			padding: calc(28 * var(--m)) calc(24 * var(--m));
+			border: calc(4 * var(--m)) solid var(--c-ink);
+			border-radius: calc(6 * var(--m));
+			background: var(--c-paper);
+			box-shadow: calc(6 * var(--m)) calc(6 * var(--m)) 0 var(--c-navy);
+			rotate: -1.5deg;
+			color: var(--c-ink);
+			font-family: 'Sniglet', system-ui, sans-serif;
+			font-size: calc(17 * var(--m));
+			font-weight: 800;
+			line-height: 1.3;
+		}
+
+		.paper-text p,
+		.paper-text ul {
+			margin: 0 0 calc(14 * var(--m));
+			padding: 0;
+			list-style: none;
+		}
+
+		.paper-text p:last-child {
+			margin-bottom: 0;
+		}
+
+		/* Tirets de la liste, comme sur la feuille */
+		.paper-text li::before {
+			content: '-';
+		}
+
+		/* Deux cartes de 174px côte à côte (cotes de la maquette × --cu, voir PackCard.astro) */
+		.cards {
+			--cu: calc(var(--m) * 0.2459);
+			width: calc(1456 * var(--cu));
+			height: calc(511 * var(--cu));
+			margin-top: calc(48 * var(--m));
+		}
+
+		.patreon {
+			--cu: calc(var(--m) * 0.36);
+			flex: none;
+			margin-top: calc(32 * var(--m));
 		}
 	}
 </style>

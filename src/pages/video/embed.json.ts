@@ -8,7 +8,7 @@ export const prerender = false;
 export const GET: APIRoute = async () => {
 	const id = youtubeIdFrom((await getSite()).video);
 	return Response.json(
-		{ src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0` },
+		{ src: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0` },
 		{ headers: { 'Cache-Control': 'no-store' } },
 	);
 };
