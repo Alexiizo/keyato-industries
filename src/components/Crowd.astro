@@ -16,11 +16,11 @@ const year = new Date().getFullYear();
 
 <footer class="crowd">
 	<div class="img" data-parallax="0.25">
-		<Image src={crowd} alt="" widths={[1280, 1920, 2577]} sizes="(max-width: 899px) 134vw, 100vw" />
+		<Image data-slot="crowd" src={crowd} alt="" widths={[1280, 1920, 2577]} sizes="(max-width: 899px) 134vw, 100vw" />
 	</div>
 
 	<div class="content">
-		<p class="display-title cap-trim label" data-reveal="up">Viens me suivre&nbsp;!</p>
+		<p class="display-title cap-trim label" data-text="followLabel" data-reveal="up">Viens me suivre&nbsp;!</p>
 
 		<ul class="socials" data-reveal-group="pop">
 			{
@@ -36,7 +36,7 @@ const year = new Date().getFullYear();
 			}
 		</ul>
 
-		<p class="display-title cap-trim copyright" data-reveal="up">© {year} Keyato</p>
+		<p class="display-title cap-trim copyright" data-reveal="up">© {year} <span data-text="copyrightName">Keyato</span></p>
 	</div>
 </footer>
 

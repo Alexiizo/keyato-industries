@@ -15,9 +15,9 @@ const { variant, href, label, pack } = Astro.props;
 <a class:list={['card', `card--${variant}`]} href={href} target="_blank" rel="noopener" data-reveal={variant === 'basique' ? 'left' : 'right'}>
 	<span class="face">
 		<span class="top">
-			<span class="pack"><Image src={pack} alt="" widths={[196, 392, 714]} sizes="(max-width: 899px) 23vw, 10.2vw" /></span>
+			<span class="pack"><Image data-slot={variant === 'basique' ? 'packBasique' : 'packDuo'} src={pack} alt="" widths={[196, 392, 714]} sizes="(max-width: 899px) 23vw, 10.2vw" /></span>
 		</span>
-		<span class="band"><span class="cap-trim">{label}</span></span>
+		<span class="band"><span class="cap-trim" data-text={variant === 'basique' ? 'packBasique' : 'packPlus'}>{label}</span></span>
 	</span>
 </a>
 

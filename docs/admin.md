@@ -1,37 +1,47 @@
 # Back-office
 
-Page `/admin`, protégée par un mot de passe, pour modifier sans toucher au code :
+Page `/admin`, protégée par un mot de passe (variable `ADMIN_PASSWORD`), en quatre onglets :
 
-- les liens des boutons « Pack Basique », « Pack Plus + » et « Voir le Patreon » (aussi l'icône Patreon du bas de page) ;
-- la vidéo de présentation (lien YouTube) ;
-- les liens YouTube, Twitch, Instagram et Discord du bas de page.
+| Onglet | Ce qu'on y fait |
+|---|---|
+| Statistiques (`/admin`) | Visites, visiteurs, clics vers Patreon, lectures de la vidéo, taux de clic, visites par jour, clics par bouton, sources, appareils, pays (7, 30 ou 90 jours) |
+| Textes (`/admin/textes`) | Tous les textes de la page, avec une longueur max par champ pour ne pas casser la mise en page |
+| Images (`/admin/images`) | Remplacer une image (clic ou glisser-déposer) ou revenir à l'originale |
+| Liens & vidéo (`/admin/liens`) | Liens des boutons Patreon, vidéo YouTube, réseaux sociaux |
 
-Les changements sont en ligne dès l'enregistrement, sans rebuild.
+Tout est en ligne dès l'enregistrement, sans rebuild.
 
 ## Fonctionnement
 
-- La page est statique (servie par Cloudflare comme fichiers). Les boutons pointent vers `/go/<clé>` et la vidéo vers `/video/thumbnail` et `/video/embed.json` : ces routes, servies par le Worker, lisent le contenu enregistré.
-- Contenu : `src/lib/site.ts`. Valeurs par défaut dans `src/data/site.json` ; les modifications sont enregistrées dans l'espace Cloudflare KV `SITE` (déclaré dans `wrangler.jsonc`).
-- Chaque saisie est vérifiée (liens en `https://`, lien YouTube reconnu) ; en cas d'erreur, rien n'est enregistré.
-- Connexion : cookie de session valable 30 jours. Changer le mot de passe déconnecte tout le monde.
+- **La page reste pré-générée** (images d'origine optimisées au build). `src/worker.ts` la fait passer par le Worker (`assets.run_worker_first: ["/"]` dans `wrangler.jsonc`), qui y applique le contenu de l'admin avec `HTMLRewriter` (`src/lib/render.ts`) : éléments `data-text="<clé>"` (textes) et `data-slot="<clé>"` (images).
+- **Contenu** : `src/lib/site.ts` (schéma et lecture/écriture), `src/lib/content.ts` (liste des textes et des images modifiables). Valeurs par défaut dans `src/data/site.json`, contenu enregistré dans l'espace KV `SITE`. Un champ absent du contenu enregistré reprend sa valeur par défaut.
+- **Images** : le navigateur de l'admin les décline aux largeurs utiles et les convertit en WebP avant l'envoi (`src/pages/admin/images.astro`) ; `src/pages/admin/upload.ts` les range dans le bucket R2 `MEDIA`, servies par `/media/…` avec un cache d'un an (clé unique par envoi).
+- **Texte de la feuille** : dessiné dans l'image sur ordinateur. Tant qu'il n'est pas modifié, la feuille d'origine reste affichée. Modifié, la page affiche la feuille vierge (`src/assets/paper-blank-extended.png`, générée par `scripts/extend-paper.mjs`) avec le texte en HTML, rétréci s'il est trop long.
+- **Liens** : la page pointe vers `/go/<clé>` (redirection vers le lien enregistré) et la vidéo vers `/video/embed.json` ; la miniature est posée par le Worker.
+- **Statistiques** (`src/lib/stats.ts`, base D1 `STATS`) : une ligne par visite de la page (enregistrée par le Worker), clic (`/go/…`) ou lecture de la vidéo. Sans cookie et sans adresse IP : un visiteur est une empreinte (IP + navigateur + jour + sel secret) qui change chaque jour. Robots et préchargements ignorés. La table est créée au premier usage ; on garde environ 400 jours d'historique.
+- **Connexion** : `src/lib/auth.ts`, cookie de session de 30 jours limité à `/admin`. Changer le mot de passe déconnecte tout le monde.
 
 ## En local
 
 Le mot de passe est dans `.env` (`ADMIN_PASSWORD`). `npm run dev`, puis http://localhost:4321/admin.
-Le serveur de dev tourne dans le moteur de Cloudflare (workerd) ; le KV est simulé dans `.wrangler/state`.
+Le serveur de dev tourne dans le moteur de Cloudflare (workerd) : KV, R2 et D1 sont simulés dans `.wrangler/state`.
+Les visites faites avec curl ou un navigateur headless sont ignorées par les statistiques (considérées comme des robots).
 
 ## Mise en ligne (Cloudflare Workers)
 
 Le repo GitHub est relié au Worker `keyato-industries` (Workers Builds) : chaque push sur `main` redéploie.
 
 - Commande de build : `npm run build` ; commande de déploiement : `npx wrangler deploy`.
-- L'espace KV `SITE` est créé automatiquement au premier déploiement (pas d'`id` dans `wrangler.jsonc`). Si la création échoue : *Storage & databases → KV → Create*, puis ajouter son `id` dans `wrangler.jsonc`.
-- `ADMIN_PASSWORD` : à définir dans le Worker, *Settings → Variables and Secrets*, de préférence en type *Secret*. `keep_vars` dans `wrangler.jsonc` évite qu'un déploiement l'efface.
+- L'espace KV `SITE`, le bucket R2 `MEDIA` et la base D1 `STATS` sont créés automatiquement au premier déploiement (pas d'identifiant dans `wrangler.jsonc`). Si la création échoue, les créer à la main dans le dashboard (*Storage & databases*) et ajouter leur `id` / nom dans `wrangler.jsonc`.
+- `ADMIN_PASSWORD` : *Settings → Variables and Secrets* du Worker, de préférence en type *Secret*. `keep_vars` évite qu'un déploiement l'efface.
 - Après un changement de `wrangler.jsonc`, relancer `npm run cf-typegen`.
 - Une modification faite dans l'admin peut mettre jusqu'à une minute à apparaître partout dans le monde (propagation de KV).
+- Quotas de l'offre gratuite : chaque visite de la page et chaque image remplacée passent par le Worker (100 000 requêtes par jour), chaque visite écrit une ligne de statistiques (100 000 par jour). Au-delà, l'offre Workers Paid (5 $/mois) lève ces limites.
 
 ## Pour Keyato
 
 1. Aller sur `<adresse du site>/admin` et entrer le mot de passe.
-2. Modifier les liens, puis « Enregistrer ».
-3. C'est en ligne tout de suite.
+2. **Statistiques** : choisir la période en haut ; survoler une colonne pour le détail du jour.
+3. **Textes** : modifier, puis « Enregistrer ». « Remettre le texte d'origine » sous chaque champ annule une modification.
+4. **Images** : « Remplacer » (ou glisser l'image sur sa carte) ; c'est en ligne dès que « C'est en ligne ! » s'affiche. Pour les personnages et les boîtes, utiliser un PNG à fond transparent, aux proportions de l'original.
+5. **Liens & vidéo** : coller les liens, puis « Enregistrer ».

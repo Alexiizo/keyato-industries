@@ -1,0 +1,150 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminAuth } from '../../lib/auth';
+import { textGroups, textKeys } from '../../lib/content';
+import { defaultTexts, getSite, saveSite, schema } from '../../lib/site';
+
+// Admin, onglet « Textes » : tous les textes de la page (src/lib/content.ts)
+export const prerender = false;
+
+const auth = await adminAuth(Astro);
+if (auth.response) return auth.response;
+
+let errors: Record<string, string> = {};
+let values: Record<string, string> = {};
+
+if (auth.loggedIn) {
+	const site = await getSite();
+	values = site.texts;
+
+	if (auth.form?.get('action') === 'save') {
+		const data = Object.fromEntries(textKeys.map((key) => [key, String(auth.form!.get(key) ?? '').replace(/\r\n/g, '\n')]));
+		const result = schema.shape.texts.safeParse(data);
+		if (result.success) {
+			await saveSite({ ...site, texts: result.data });
+			return Astro.redirect('/admin/textes?enregistre', 303);
+		}
+		errors = Object.fromEntries(result.error.issues.map((issue) => [String(issue.path.at(-1)), issue.message]));
+		values = data;
+	}
+}
+
+const saved = Astro.url.searchParams.has('enregistre') && !Object.keys(errors).length;
+---
+
+<AdminLayout title="Textes" active="textes" auth={auth}>
+	{saved && <p class="banner">C'est enregistré, le site est à jour.</p>}
+	{Object.keys(errors).length > 0 && <p class="banner banner--error">Rien n'a été enregistré : corrige les champs en rouge.</p>}
+
+	<form method="post" class="form">
+		<input type="hidden" name="action" value="save" />
+		{
+			textGroups.map((group) => (
+				<fieldset>
+					<legend>{group.title}</legend>
+					{group.fields.map((field) => (
+						<div class="field" data-field>
+							<div class="field-head">
+								<label for={field.key}>{field.label}</label>
+								<span class="count" data-count aria-live="polite" />
+							</div>
+							{field.multiline ? (
+								<textarea
+									id={field.key}
+									name={field.key}
+									rows={field.key === 'paperText' ? 16 : 3}
+									maxlength={field.max}
+									required
+									data-default={defaultTexts[field.key]}
+									aria-invalid={errors[field.key] ? 'true' : undefined}
+								>{values[field.key]}</textarea>
+							) : (
+								<input
+									id={field.key}
+									name={field.key}
+									type="text"
+									maxlength={field.max}
+									required
+									value={values[field.key]}
+									data-default={defaultTexts[field.key]}
+									aria-invalid={errors[field.key] ? 'true' : undefined}
+								/>
+							)}
+							{errors[field.key] && <p class="error">{errors[field.key]}</p>}
+							{field.hint && <p class="hint">{field.hint}</p>}
+							<button type="button" class="reset" data-reset hidden>
+								Remettre le texte d'origine
+							</button>
+						</div>
+					))}
+				</fieldset>
+			))
+		}
+		<div class="actions">
+			<button class="button" type="submit">Enregistrer</button>
+		</div>
+	</form>
+</AdminLayout>
+
+<style>
+	.form {
+		max-width: 720px;
+	}
+
+	.field-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.count {
+		font-size: 13px;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.7;
+	}
+
+	.count[data-full] {
+		color: #c0143c;
+		font-weight: 600;
+		opacity: 1;
+	}
+
+	.reset {
+		margin-top: 6px;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: #7962e9;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 600;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.reset[hidden] {
+		display: none;
+	}
+</style>
+
+<script>
+	// Compteur de caractères et bouton « Remettre le texte d'origine » (visible quand le texte a été changé)
+	document.querySelectorAll<HTMLElement>('[data-field]').forEach((field) => {
+		const input = field.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea')!;
+		const count = field.querySelector<HTMLElement>('[data-count]')!;
+		const reset = field.querySelector<HTMLButtonElement>('[data-reset]')!;
+		const update = () => {
+			count.textContent = `${input.value.length} / ${input.maxLength}`;
+			count.toggleAttribute('data-full', input.value.length >= input.maxLength);
+			reset.hidden = input.value.trim() === (input.dataset.default ?? '').trim();
+		};
+		input.addEventListener('input', update);
+		reset.addEventListener('click', () => {
+			input.value = input.dataset.default ?? '';
+			update();
+			input.focus();
+		});
+		update();
+	});
+</script>

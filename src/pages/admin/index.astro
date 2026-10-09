@@ -1,369 +1,570 @@
 ---
-import '@fontsource/londrina-solid/900.css';
-import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getSecret } from 'astro:env/server';
-import { getSite, saveSite, schema, youtubeIdFrom, type Site } from '../../lib/site';
-import faviconIco from '../../assets/icons/favicon-admin.ico?url';
-import faviconPng from '../../assets/icons/favicon-admin.png?url';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminAuth } from '../../lib/auth';
+import { dashboard, periodOf } from '../../lib/stats';
 
-// Back-office : modifie les liens, la vidéo et les réseaux (src/lib/site.ts). Mot de passe : variable ADMIN_PASSWORD.
+// Admin, onglet « Statistiques » (page d'accueil de l'admin) : données de src/lib/stats.ts
 export const prerender = false;
 
-const password = getSecret('ADMIN_PASSWORD');
-const cookieName = 'keyato_admin';
+const auth = await adminAuth(Astro);
+if (auth.response) return auth.response;
 
-// Jeton de session dérivé du mot de passe : changer le mot de passe déconnecte tout le monde.
-const tokenFor = (secret: string) => createHmac('sha256', secret).update('keyato-admin').digest();
-const isValidToken = (value: string | undefined) => {
-	if (!password || !value) return false;
-	const expected = tokenFor(password);
-	const given = Buffer.from(value, 'hex');
-	return given.length === expected.length && timingSafeEqual(given, expected);
-};
+const presets = [7, 30, 90];
+const requested = Number(Astro.url.searchParams.get('jours'));
+const days = presets.includes(requested) ? requested : 30;
+const period = periodOf(days);
+const stats = auth.loggedIn ? await dashboard(period) : null;
 
-const flatten = (site: Site) => ({ ...site.links, video: site.video, ...site.socials });
+const number = new Intl.NumberFormat('fr-FR');
+const percent = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 });
 
-let loggedIn = isValidToken(Astro.cookies.get(cookieName)?.value);
-let loginError = '';
-let errors: Record<string, string> = {};
-let values: Record<string, string> | null = null;
-
-if (password && Astro.request.method === 'POST') {
-	const form = await Astro.request.formData();
-	const field = (name: string) => String(form.get(name) ?? '').trim();
-	const action = field('action');
-
-	if (action === 'login') {
-		if (isValidToken(tokenFor(field('password')).toString('hex'))) {
-			Astro.cookies.set(cookieName, tokenFor(password).toString('hex'), {
-				httpOnly: true,
-				sameSite: 'strict',
-				secure: Astro.url.protocol === 'https:',
-				path: '/admin',
-				maxAge: 60 * 60 * 24 * 30,
-			});
-			return Astro.redirect('/admin', 303);
-		}
-		// Ralentit les essais de mot de passe à la chaîne
-		await new Promise((resolve) => setTimeout(resolve, 800));
-		loginError = 'Mot de passe incorrect.';
-	}
-
-	if (action === 'logout') {
-		Astro.cookies.delete(cookieName, { path: '/admin' });
-		return Astro.redirect('/admin', 303);
-	}
-
-	if (action === 'save' && loggedIn) {
-		const data = {
-			links: { basique: field('basique'), plus: field('plus'), patreon: field('patreon') },
-			video: field('video'),
-			socials: { youtube: field('youtube'), twitch: field('twitch'), instagram: field('instagram'), discord: field('discord') },
-		};
-		const result = schema.safeParse(data);
-		if (result.success) {
-			await saveSite(result.data);
-			return Astro.redirect('/admin?enregistre', 303);
-		}
-		errors = Object.fromEntries(result.error.issues.map((issue) => [String(issue.path.at(-1)), issue.message]));
-		values = flatten(data);
-	}
+// Évolution par rapport à la période précédente
+function delta(current: number, previous: number) {
+	if (previous === 0) return current > 0 ? { text: 'nouveau', up: true } : null;
+	const change = (current - previous) / previous;
+	if (Math.abs(change) < 0.005) return { text: '= stable', up: null };
+	return { text: `${change > 0 ? '▲ +' : '▼ '}${percent.format(change).replace('-', '−')}`, up: change > 0 };
 }
 
-if (loggedIn && !values) values = flatten(await getSite());
+const kpis = stats
+	? [
+			{ label: 'Visites', value: stats.current.views, previous: stats.previous.views },
+			{ label: 'Visiteurs', value: stats.current.visitors, previous: stats.previous.visitors },
+			{ label: 'Clics vers Patreon', value: stats.current.packClicks, previous: stats.previous.packClicks },
+			{ label: 'Lectures de la vidéo', value: stats.current.videos, previous: stats.previous.videos },
+		]
+	: [];
+const conversion = stats && stats.current.visitors > 0 ? stats.current.packClicks / stats.current.visitors : null;
+const previousConversion = stats && stats.previous.visitors > 0 ? stats.previous.packClicks / stats.previous.visitors : null;
 
-const saved = Astro.url.searchParams.has('enregistre') && !Object.keys(errors).length;
-const videoId = values ? youtubeIdFrom(values.video) : '';
+// Visites par jour, jours sans visite compris
+const dayList: string[] = [];
+for (let i = days - 1; i >= 0; i--) dayList.push(periodOf(i + 1).from);
+const byDay = new Map(stats?.daily.map((row) => [row.day, row]) ?? []);
+const series = dayList.map((day) => ({ day, views: byDay.get(day)?.views ?? 0, visitors: byDay.get(day)?.visitors ?? 0 }));
+const peak = series.reduce((a, b) => (b.views > a.views ? b : a), series[0]);
 
-type Field = { name: string; label: string; hint?: string };
+// Graduation : 0, la moitié et un maximum rond
+function niceMax(value: number) {
+	if (value <= 4) return 4;
+	const power = 10 ** Math.floor(Math.log10(value));
+	const step = [1, 2, 2.5, 5, 10].map((n) => n * power).find((n) => n >= value / 2)!;
+	return step * 2;
+}
+const yMax = niceMax(peak?.views ?? 0);
 
-const sections: { title: string; fields: Field[] }[] = [
-	{
-		title: 'Boutons Patreon',
-		fields: [
-			{ name: 'basique', label: 'Bouton « Pack Basique »', hint: 'Le bouton du haut et la carte du bas.' },
-			{ name: 'plus', label: 'Bouton « Pack Plus + »', hint: 'Le bouton du haut et la carte du bas.' },
-			{ name: 'patreon', label: 'Bouton « Voir le Patreon »', hint: "Aussi l'icône Patreon du bas de page." },
-		],
-	},
-	{
-		title: 'Vidéo de présentation',
-		fields: [{ name: 'video', label: 'Lien YouTube', hint: 'Par exemple https://www.youtube.com/watch?v=…' }],
-	},
-	{
-		title: 'Réseaux sociaux',
-		fields: [
-			{ name: 'youtube', label: 'YouTube' },
-			{ name: 'twitch', label: 'Twitch' },
-			{ name: 'instagram', label: 'Instagram' },
-			{ name: 'discord', label: 'Discord' },
-		],
-	},
-];
+const dateLong = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const dateShort = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const asDate = (day: string) => new Date(`${day}T12:00:00Z`);
+// Dates sous l'axe : 6 repères au plus, répartis régulièrement
+const tickEvery = Math.max(1, Math.ceil(days / 6));
+
+const clickLabels: Record<string, string> = {
+	basique: 'Pack Basique',
+	plus: 'Pack Plus',
+	patreon: 'Voir le Patreon',
+	youtube: 'YouTube',
+	twitch: 'Twitch',
+	instagram: 'Instagram',
+	discord: 'Discord',
+};
+const clicks = Object.entries(clickLabels)
+	.map(([target, label]) => ({ label, n: stats?.clicks.find((row) => row.target === target)?.n ?? 0 }))
+	.sort((a, b) => b.n - a.n);
+
+const deviceLabels: Record<string, string> = { mobile: 'Téléphone', desktop: 'Ordinateur', tablet: 'Tablette' };
+let regions: Intl.DisplayNames | null = null;
+try {
+	regions = new Intl.DisplayNames('fr', { type: 'region' });
+} catch {}
+const countryName = (code: string) => {
+	try {
+		return regions?.of(code) ?? code;
+	} catch {
+		return code;
+	}
+};
+
+const breakdowns = stats
+	? [
+			{ title: 'Clics par bouton', note: 'Boutons Patreon, cartes et réseaux du bas de page.', rows: clicks },
+			{
+				title: 'D’où viennent les visiteurs',
+				note: 'Site d’où vient le clic. Les visites directes (lien tapé, appli) ne sont pas listées.',
+				rows: stats.referrers.map((row) => ({ label: row.referrer, n: row.n })),
+			},
+			{ title: 'Appareils', note: 'Visites par type d’appareil.', rows: stats.devices.map((row) => ({ label: deviceLabels[row.device] ?? row.device, n: row.n })) },
+			{ title: 'Pays', note: 'Visites par pays.', rows: stats.countries.map((row) => ({ label: countryName(row.country), n: row.n })) },
+		]
+	: [];
+
+const empty = stats !== null && stats.current.views === 0 && stats.current.packClicks === 0 && stats.current.videos === 0;
 ---
 
-<!doctype html>
-<html lang="fr">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="robots" content="noindex" />
-		<link rel="icon" href={faviconIco} sizes="48x48" />
-		<link rel="icon" type="image/png" href={faviconPng} sizes="192x192" />
-		<title>Admin — Keyato</title>
-	</head>
-	<body>
-		<main class:list={['panel', { 'panel--login': !loggedIn }]}>
-			<h1>Admin du site</h1>
+<AdminLayout title="Statistiques" active="stats" auth={auth}>
+	{
+		stats && (
+			<>
+				<nav class="periods" aria-label="Période">
+					{presets.map((preset) => (
+						<a href={`/admin?jours=${preset}`} class:list={['period', { 'period--active': preset === days }]} aria-current={preset === days ? 'true' : undefined}>
+							{preset} derniers jours
+						</a>
+					))}
+				</nav>
 
-			{
-				!password && (
-					<p class="notice">
-						L'admin n'est pas activé : définis la variable d'environnement <code>ADMIN_PASSWORD</code> (voir docs/admin.md).
+				{empty && (
+					<p class="empty">
+						Pas encore de visite enregistrée sur cette période : les chiffres se remplissent dès les premières visites du site.
 					</p>
-				)
-			}
+				)}
 
-			{
-				password && !loggedIn && (
-					<form method="post" class="login">
-						<input type="hidden" name="action" value="login" />
-						<label for="password">Mot de passe</label>
-						<input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
-						{loginError && <p class="error">{loginError}</p>}
-						<button class="button" type="submit">
-							Se connecter
-						</button>
-					</form>
-				)
-			}
-
-			{
-				loggedIn && values && (
-					<>
-						{saved && <p class="banner">C'est enregistré, le site est à jour.</p>}
-						{Object.keys(errors).length > 0 && <p class="banner banner--error">Rien n'a été enregistré : corrige les champs en rouge.</p>}
-
-						<form method="post">
-							<input type="hidden" name="action" value="save" />
-							{sections.map((section) => (
-								<fieldset>
-									<legend>{section.title}</legend>
-									{section.fields.map((field) => (
-										<div class="field">
-											<label for={field.name}>{field.label}</label>
-											<input
-												id={field.name}
-												name={field.name}
-												type="url"
-												required
-												value={values[field.name]}
-												aria-invalid={errors[field.name] ? 'true' : undefined}
-											/>
-											{errors[field.name] ? <p class="error">{errors[field.name]}</p> : field.hint && <p class="hint">{field.hint}</p>}
-											{field.name === 'video' && videoId && (
-												<img class="thumb" src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="Miniature de la vidéo actuelle" width="320" height="180" />
-											)}
-										</div>
-									))}
-								</fieldset>
-							))}
-							<div class="actions">
-								<button class="button" type="submit">
-									Enregistrer
-								</button>
-								<a href="/" target="_blank">
-									Voir le site
-								</a>
+				<section class="kpis" aria-label="Chiffres clés">
+					{kpis.map((kpi) => {
+						const change = delta(kpi.value, kpi.previous);
+						return (
+							<div class="kpi">
+								<p class="kpi-label">{kpi.label}</p>
+								<p class="kpi-value">{number.format(kpi.value)}</p>
+								{change && (
+									<p class:list={['kpi-delta', { 'kpi-delta--up': change.up === true, 'kpi-delta--down': change.up === false }]}>
+										{change.text} <span>vs les {days} jours d’avant</span>
+									</p>
+								)}
 							</div>
-						</form>
+						);
+					})}
+					<div class="kpi">
+						<p class="kpi-label">Taux de clic</p>
+						<p class="kpi-value">{conversion === null ? '—' : percent.format(conversion)}</p>
+						<p class="kpi-delta kpi-delta--neutral">
+							{conversion !== null && previousConversion !== null ? `${percent.format(previousConversion)} avant · ` : ''}
+							<span>clics vers Patreon par visiteur</span>
+						</p>
+					</div>
+				</section>
 
-						<form method="post" class="logout">
-							<input type="hidden" name="action" value="logout" />
-							<button type="submit">Se déconnecter</button>
-						</form>
-					</>
-				)
-			}
-		</main>
-	</body>
-</html>
+				<section class="card" aria-labelledby="visits-title">
+					<h2 id="visits-title">Visites par jour</h2>
+					<p class="note">Survole une colonne pour le détail du jour.</p>
+					<div class="chart" data-chart>
+						<div class="plot">
+							{[1, 0.5, 0].map((ratio) => (
+								<div class="grid" style={`bottom: ${ratio * 100}%`}>
+									<span>{number.format(yMax * ratio)}</span>
+								</div>
+							))}
+							<div class="columns">
+								{series.map((point) => (
+									<div
+										class="column"
+										tabindex="0"
+										data-tip={`${dateLong.format(asDate(point.day))} · ${number.format(point.views)} visite${point.views > 1 ? 's' : ''} · ${number.format(point.visitors)} visiteur${point.visitors > 1 ? 's' : ''}`}
+										aria-label={`${dateLong.format(asDate(point.day))} : ${point.views} visites, ${point.visitors} visiteurs`}
+									>
+										{point.views > 0 && <div class="bar" style={`height: ${(point.views / yMax) * 100}%`} />}
+										{point === peak && point.views > 0 && (
+											<span class="peak" style={`bottom: ${(point.views / yMax) * 100}%`}>
+												{number.format(point.views)}
+											</span>
+										)}
+									</div>
+								))}
+							</div>
+						</div>
+						<div class="axis" aria-hidden="true">
+							{series.map((point, index) => (
+								<span>{(days - 1 - index) % tickEvery === 0 ? dateShort.format(asDate(point.day)) : ''}</span>
+							))}
+						</div>
+						<div class="tooltip" role="status" hidden data-tooltip />
+					</div>
+					<details class="table">
+						<summary>Voir les chiffres jour par jour</summary>
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Jour</th>
+									<th scope="col">Visites</th>
+									<th scope="col">Visiteurs</th>
+								</tr>
+							</thead>
+							<tbody>
+								{[...series].reverse().map((point) => (
+									<tr>
+										<th scope="row">{dateLong.format(asDate(point.day))}</th>
+										<td>{number.format(point.views)}</td>
+										<td>{number.format(point.visitors)}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</details>
+				</section>
+
+				<div class="breakdowns">
+					{breakdowns.map((block) => {
+						const max = Math.max(1, ...block.rows.map((row) => row.n));
+						return (
+							<section class="card">
+								<h2>{block.title}</h2>
+								<p class="note">{block.note}</p>
+								{block.rows.length === 0 ? (
+									<p class="none">Rien pour l’instant.</p>
+								) : (
+									<ul class="hbars">
+										{block.rows.map((row) => (
+											<li>
+												<span class="hbar-label">{row.label}</span>
+												<span class="hbar-track">
+													{row.n > 0 && <span class="hbar" style={`width: ${(row.n / max) * 100}%`} />}
+													<span class="hbar-value">{number.format(row.n)}</span>
+												</span>
+											</li>
+										))}
+									</ul>
+								)}
+							</section>
+						);
+					})}
+				</div>
+
+				<p class="footnote">
+					Sans cookie et sans stocker d’adresse IP : un visiteur est reconnu le temps d’une journée, puis devient anonyme. Les
+					robots (moteurs de recherche, aperçus de liens) ne sont pas comptés. Tes propres visites du site, elles, le sont.
+				</p>
+			</>
+		)
+	}
+</AdminLayout>
 
 <style>
-	:global(*),
-	:global(*::before),
-	:global(*::after) {
-		box-sizing: border-box;
+	.periods {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 20px;
 	}
 
-	/* Le panneau est centré dans l'écran ; le formulaire, plus haut que l'écran, part simplement du haut */
-	:global(body) {
-		display: grid;
-		place-items: center;
-		margin: 0;
-		min-height: 100vh;
-		padding: 48px 16px;
-		background: #9068ec;
+	.period {
+		padding: 6px 14px;
+		border: 2px solid #260c69;
+		border-radius: 999px;
+		background: #fff;
 		color: #260c69;
-		font-family: system-ui, sans-serif;
-		line-height: 1.4;
+		font-weight: 600;
+		text-decoration: none;
 	}
 
-	.panel {
-		width: 100%;
-		max-width: 640px;
-		padding: 32px;
-		border: 6px solid #260c69;
-		border-radius: 32px;
-		background: #ffe5f5;
+	.period--active {
+		background: #260c69;
+		color: #fff;
 	}
 
-	h1,
-	legend,
-	.button {
-		font-family: 'Londrina Solid', system-ui, sans-serif;
-		font-weight: 900;
-	}
-
-	h1 {
-		margin: 0 0 16px;
-		font-size: 44px;
-		line-height: 1;
-	}
-
-	fieldset {
-		margin: 24px 0 0;
-		padding: 0;
-		border: 0;
-	}
-
-	legend {
-		margin-bottom: 4px;
-		font-size: 28px;
-	}
-
-	.field {
-		margin-top: 14px;
-	}
-
-	label {
-		display: block;
-		margin-bottom: 6px;
+	.empty {
+		margin: 20px 0 0;
+		padding: 12px 16px;
+		border-radius: 14px;
+		background: #fff;
 		font-weight: 600;
 	}
 
-	input {
-		width: 100%;
-		padding: 12px 14px;
+	.kpis {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+		gap: 12px;
+		margin-top: 20px;
+	}
+
+	.kpi,
+	.card {
 		border: 3px solid #260c69;
-		border-radius: 14px;
+		border-radius: 20px;
 		background: #fff;
-		color: inherit;
-		font: inherit;
 	}
 
-	input:focus {
-		outline: 3px solid #7962e9;
-		outline-offset: 2px;
+	.kpi {
+		padding: 14px 16px;
 	}
 
-	input[aria-invalid='true'] {
-		border-color: #c0143c;
+	.kpi p {
+		margin: 0;
 	}
 
-	.hint,
-	.error {
-		margin: 4px 0 0;
+	.kpi-label {
 		font-size: 14px;
-	}
-
-	.hint {
+		font-weight: 600;
 		opacity: 0.75;
 	}
 
-	.error {
+	.kpi-value {
+		margin-top: 2px !important;
+		font-size: 36px;
+		font-weight: 700;
+		line-height: 1.1;
+	}
+
+	.kpi-delta {
+		margin-top: 6px !important;
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.kpi-delta span {
+		font-weight: 400;
+		opacity: 0.75;
+	}
+
+	.kpi-delta--up {
+		color: #1b7a3d;
+	}
+
+	.kpi-delta--down {
 		color: #c0143c;
+	}
+
+	.kpi-delta--neutral {
 		font-weight: 600;
 	}
 
-	.thumb {
-		display: block;
-		width: 240px;
-		height: auto;
-		margin-top: 10px;
-		border: 3px solid #260c69;
-		border-radius: 12px;
-	}
-
-	.button {
-		padding: 10px 32px;
-		border: 0;
-		border-radius: 999px;
-		background: #7962e9;
-		color: #fff;
-		font-size: 26px;
-		cursor: pointer;
-		transition: scale 0.2s;
-	}
-
-	.button:hover {
-		scale: 1.04;
-	}
-
-	.panel--login {
-		max-width: 440px;
-		text-align: center;
-	}
-
-	.login label {
-		text-align: left;
-	}
-
-	.login .button {
+	.card {
 		margin-top: 16px;
+		padding: 18px 20px;
 	}
 
-	.actions {
+	.card h2 {
+		font-size: 26px;
+	}
+
+	.note {
+		margin: 2px 0 0;
+		font-size: 13px;
+		opacity: 0.7;
+	}
+
+	/* Visites par jour : colonnes de 24px max, extrémité arrondie, grille en filet discret */
+	.chart {
+		position: relative;
+		margin-top: 18px;
+	}
+
+	.plot {
+		position: relative;
+		height: 200px;
+		margin-left: 44px;
+	}
+
+	.grid {
+		position: absolute;
+		left: 0;
+		right: 0;
+		border-top: 1px solid #ece6f7;
+	}
+
+	.grid span {
+		position: absolute;
+		right: calc(100% + 8px);
+		top: 0;
+		translate: 0 -50%;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		opacity: 0.7;
+	}
+
+	.columns {
+		position: absolute;
+		inset: 0;
 		display: flex;
-		align-items: center;
-		gap: 24px;
-		margin-top: 32px;
+		align-items: flex-end;
+		gap: 2px;
 	}
 
-	.actions a {
-		color: inherit;
+	.column {
+		position: relative;
+		display: flex;
+		flex: 1;
+		align-items: flex-end;
+		justify-content: center;
+		height: 100%;
+		outline: none;
+		cursor: default;
+	}
+
+	.bar {
+		width: min(24px, 100%);
+		min-height: 2px;
+		border-radius: 4px 4px 0 0;
+		background: #7962e9;
+		transition: background-color 0.1s;
+	}
+
+	.column:hover .bar,
+	.column:focus-visible .bar {
+		background: #5a43cf;
+	}
+
+	.column:focus-visible {
+		box-shadow: inset 0 0 0 2px #260c69;
+		border-radius: 4px;
+	}
+
+	.peak {
+		position: absolute;
+		left: 50%;
+		translate: -50% -4px;
+		font-size: 12px;
+		font-weight: 700;
+		white-space: nowrap;
+	}
+
+	.axis {
+		display: flex;
+		gap: 2px;
+		margin: 6px 0 0 44px;
+	}
+
+	.axis span {
+		flex: 1;
+		overflow: visible;
+		font-size: 12px;
+		white-space: nowrap;
+		opacity: 0.7;
+	}
+
+	.tooltip {
+		position: absolute;
+		z-index: 1;
+		padding: 6px 10px;
+		border-radius: 10px;
+		background: #260c69;
+		color: #fff;
+		font-size: 13px;
 		font-weight: 600;
+		white-space: nowrap;
+		pointer-events: none;
+		translate: -50% calc(-100% - 8px);
 	}
 
-	.logout {
-		margin-top: 24px;
+	.table {
+		margin-top: 14px;
+		font-size: 14px;
+	}
+
+	.table summary {
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.table table {
+		width: 100%;
+		margin-top: 8px;
+		border-collapse: collapse;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.table th,
+	.table td {
+		padding: 4px 8px;
+		border-bottom: 1px solid #ece6f7;
 		text-align: right;
 	}
 
-	.logout button {
+	.table th[scope='row'],
+	.table thead th:first-child {
+		text-align: left;
+		font-weight: 400;
+	}
+
+	.breakdowns {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 0 16px;
+	}
+
+	.none {
+		margin: 12px 0 0;
+		font-size: 14px;
+		opacity: 0.7;
+	}
+
+	/* Barres horizontales : 14px d'épaisseur, valeur au bout */
+	.hbars {
+		margin: 12px 0 0;
 		padding: 0;
-		border: 0;
-		background: none;
-		color: inherit;
-		font: inherit;
-		text-decoration: underline;
-		cursor: pointer;
+		list-style: none;
 	}
 
-	.banner {
-		margin: 0;
-		padding: 12px 16px;
-		border-radius: 14px;
-		background: #edce00;
-		font-weight: 600;
+	.hbars li {
+		display: grid;
+		grid-template-columns: 130px 1fr;
+		align-items: center;
+		gap: 10px;
+		padding: 4px 0;
 	}
 
-	.banner--error {
-		background: #c0143c;
-		color: #fff;
+	.hbar-label {
+		overflow: hidden;
+		font-size: 14px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	.notice code {
-		font-weight: 600;
+	.hbar-track {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.hbar {
+		height: 14px;
+		border-radius: 0 4px 4px 0;
+		background: #7962e9;
+	}
+
+	.hbar-value {
+		font-size: 14px;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.footnote {
+		margin: 20px 0 0;
+		font-size: 13px;
+		opacity: 0.7;
+	}
+
+	@media (max-width: 600px) {
+		.kpi-value {
+			font-size: 30px;
+		}
+
+		.hbars li {
+			grid-template-columns: 100px 1fr;
+		}
 	}
 </style>
+
+<script>
+	// Détail d'un jour au survol ou au focus clavier d'une colonne
+	const chart = document.querySelector<HTMLElement>('[data-chart]');
+	const tooltip = chart?.querySelector<HTMLElement>('[data-tooltip]');
+
+	function show(column: HTMLElement) {
+		if (!chart || !tooltip) return;
+		tooltip.textContent = column.dataset.tip ?? '';
+		tooltip.hidden = false;
+		const box = column.getBoundingClientRect();
+		const frame = chart.getBoundingClientRect();
+		const bar = column.querySelector('.bar')?.getBoundingClientRect();
+		const left = Math.min(Math.max(box.left + box.width / 2 - frame.left, tooltip.offsetWidth / 2), frame.width - tooltip.offsetWidth / 2);
+		tooltip.style.left = `${left}px`;
+		tooltip.style.top = `${(bar ? bar.top : box.bottom) - frame.top}px`;
+	}
+
+	chart?.querySelectorAll<HTMLElement>('.column').forEach((column) => {
+		column.addEventListener('pointerenter', () => show(column));
+		column.addEventListener('focus', () => show(column));
+		column.addEventListener('pointerleave', () => tooltip && (tooltip.hidden = true));
+		column.addEventListener('blur', () => tooltip && (tooltip.hidden = true));
+	});
+</script>

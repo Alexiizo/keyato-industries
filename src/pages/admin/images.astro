@@ -1,0 +1,325 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminAuth } from '../../lib/auth';
+import { imageSlots } from '../../lib/content';
+import { mediaUrl } from '../../lib/render';
+import { getSite, type SiteImage } from '../../lib/site';
+
+// Admin, onglet « Images » : remplacer les images de la page (envoi par src/pages/admin/upload.ts)
+export const prerender = false;
+
+const auth = await adminAuth(Astro);
+if (auth.response) return auth.response;
+
+const images: Partial<Record<string, SiteImage>> = auth.loggedIn ? (await getSite()).images : {};
+const saved = Astro.url.searchParams.has('enregistre');
+
+// Aperçu d'une image remplacée : sa plus petite déclinaison d'au moins 480 px
+const preview = (image: SiteImage) => mediaUrl((image.variants.find((variant) => variant.w >= 480) ?? image.variants.at(-1)!).key);
+---
+
+<AdminLayout title="Images" active="images" auth={auth}>
+	{saved && <p class="banner">C'est enregistré, le site est à jour.</p>}
+	<p class="intro">
+		Clique sur « Remplacer » ou glisse une image sur sa carte. Elle est redimensionnée et compressée automatiquement avant
+		l'envoi. Pour les personnages et les boîtes, utilise un PNG à fond transparent.
+	</p>
+
+	<div class="grid">
+		{
+			imageSlots.map((slot) => {
+				const image = images[slot.key];
+				return (
+					<article class="card" data-slot={slot.key} data-widths={slot.widths.join(',')}>
+						<div class="preview">
+							<img
+								src={image ? preview(image) : undefined}
+								data-default-preview={image ? undefined : ''}
+								alt={`Aperçu : ${slot.label}`}
+								loading="lazy"
+							/>
+						</div>
+						<div class="body">
+							<h2>{slot.label}</h2>
+							<p class="state">
+								{image ? (
+									<span class="badge badge--custom">Remplacée</span>
+								) : (
+									<span class="badge">Image d'origine</span>
+								)}
+								<span class="size" data-size>
+									{image ? `${image.width} × ${image.height} px` : ''}
+								</span>
+							</p>
+							<p class="hint">{slot.hint}</p>
+							<div class="card-actions">
+								<label class="button button--small">
+									Remplacer
+									<input type="file" accept="image/png,image/jpeg,image/webp" hidden />
+								</label>
+								{image && (
+									<button type="button" class="reset" data-reset>
+										Revenir à l'original
+									</button>
+								)}
+							</div>
+							<p class="status" data-status aria-live="polite" />
+						</div>
+					</article>
+				);
+			})
+		}
+	</div>
+</AdminLayout>
+
+<style>
+	.intro {
+		max-width: 720px;
+		margin: 20px 0 0;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 20px;
+		margin-top: 24px;
+	}
+
+	.card {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 3px solid #260c69;
+		border-radius: 20px;
+		background: #fff;
+		transition:
+			box-shadow 0.15s,
+			scale 0.15s;
+	}
+
+	.card[data-dragover] {
+		box-shadow: 0 0 0 4px #7962e9;
+		scale: 1.02;
+	}
+
+	/* Damier : laisse voir la transparence des PNG */
+	.preview {
+		height: 180px;
+		padding: 10px;
+		border-bottom: 3px solid #260c69;
+		background: repeating-conic-gradient(#f1ecfa 0% 25%, #fff 0% 50%) 50% / 20px 20px;
+	}
+
+	.preview img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+
+	.body {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		padding: 14px 16px 16px;
+	}
+
+	.body h2 {
+		font-size: 24px;
+	}
+
+	.state {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		margin: 6px 0 0;
+		font-size: 13px;
+	}
+
+	.badge {
+		padding: 2px 10px;
+		border-radius: 999px;
+		background: #f1ecfa;
+		font-weight: 600;
+	}
+
+	.badge--custom {
+		background: #edce00;
+	}
+
+	.size {
+		opacity: 0.7;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.card-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px;
+		margin-top: auto;
+		padding-top: 14px;
+	}
+
+	.button--small {
+		display: inline-block;
+		margin: 0;
+		padding: 6px 20px;
+		font-size: 20px;
+	}
+
+	.reset {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: #7962e9;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 600;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.status {
+		min-height: 1.4em;
+		margin: 8px 0 0;
+		font-size: 14px;
+		font-weight: 600;
+	}
+
+	.status[data-error] {
+		color: #c0143c;
+	}
+</style>
+
+<script>
+	/*
+	 * Remplacement d'une image : le navigateur la décline aux largeurs utiles (une par largeur, plafonnées à la taille
+	 * de l'image envoyée), en WebP (PNG ou JPEG si le navigateur ne sait pas encoder le WebP), puis l'envoie.
+	 */
+	type Variant = { w: number; h: number; blob: Blob };
+
+	async function encode(canvas: HTMLCanvasElement, original: File): Promise<Blob> {
+		const toBlob = (type: string, quality?: number) =>
+			new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+		const webp = await toBlob('image/webp', 0.86);
+		if (webp && webp.type === 'image/webp') return webp;
+		const fallback = original.type === 'image/jpeg' ? await toBlob('image/jpeg', 0.88) : await toBlob('image/png');
+		if (!fallback) throw new Error('encode');
+		return fallback;
+	}
+
+	// Réduction par moitiés successives, puis à la taille finale : plus net qu'une réduction d'un coup
+	async function resize(bitmap: ImageBitmap, width: number, original: File): Promise<Variant> {
+		const height = Math.round((bitmap.height * width) / bitmap.width);
+		let source: CanvasImageSource = bitmap;
+		let w = bitmap.width;
+		let h = bitmap.height;
+		while (w / 2 >= width) {
+			const step = document.createElement('canvas');
+			step.width = Math.round(w / 2);
+			step.height = Math.round(h / 2);
+			const context = step.getContext('2d')!;
+			context.imageSmoothingQuality = 'high';
+			context.drawImage(source, 0, 0, step.width, step.height);
+			source = step;
+			w = step.width;
+			h = step.height;
+		}
+		const canvas = document.createElement('canvas');
+		canvas.width = width;
+		canvas.height = height;
+		const context = canvas.getContext('2d')!;
+		context.imageSmoothingQuality = 'high';
+		context.drawImage(source, 0, 0, width, height);
+		return { w: width, h: height, blob: await encode(canvas, original) };
+	}
+
+	async function post(body: FormData) {
+		const response = await fetch('/admin/upload', { method: 'POST', body });
+		const result = (await response.json().catch(() => ({ ok: false }))) as { ok: boolean; message?: string };
+		if (!result.ok) throw new Error(result.message ?? "L'envoi a échoué, réessaie.");
+	}
+
+	function setup(card: HTMLElement) {
+		const slot = card.dataset.slot!;
+		const widths = card.dataset.widths!.split(',').map(Number);
+		const input = card.querySelector<HTMLInputElement>('input[type=file]')!;
+		const status = card.querySelector<HTMLElement>('[data-status]')!;
+		const say = (message: string, error = false) => {
+			status.textContent = message;
+			status.toggleAttribute('data-error', error);
+		};
+
+		async function replace(file: File) {
+			if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return say('Choisis une image PNG, JPEG ou WebP.', true);
+			card.querySelectorAll('button, input').forEach((element) => ((element as HTMLButtonElement).disabled = true));
+			try {
+				say("Préparation de l'image…");
+				const bitmap = await createImageBitmap(file);
+				const targets = [...new Set(widths.map((w) => Math.min(w, bitmap.width)))];
+				const variants: Variant[] = [];
+				for (const width of targets) variants.push(await resize(bitmap, width, file));
+				const largest = variants.at(-1)!;
+
+				say('Envoi…');
+				const body = new FormData();
+				body.set('action', 'upload');
+				body.set('slot', slot);
+				body.set('width', String(largest.w));
+				body.set('height', String(largest.h));
+				for (const variant of variants) body.set(`w${variant.w}`, variant.blob, `${slot}-${variant.w}`);
+				await post(body);
+				say("C'est en ligne !");
+				location.assign('/admin/images?enregistre');
+			} catch (error) {
+				say(error instanceof Error && error.message !== 'encode' ? error.message : "Cette image n'a pas pu être lue.", true);
+				card.querySelectorAll('button, input').forEach((element) => ((element as HTMLButtonElement).disabled = false));
+			}
+		}
+
+		input.addEventListener('change', () => input.files?.[0] && replace(input.files[0]));
+
+		card.addEventListener('dragover', (event) => {
+			event.preventDefault();
+			card.setAttribute('data-dragover', '');
+		});
+		card.addEventListener('dragleave', () => card.removeAttribute('data-dragover'));
+		card.addEventListener('drop', (event) => {
+			event.preventDefault();
+			card.removeAttribute('data-dragover');
+			const file = event.dataTransfer?.files[0];
+			if (file) replace(file);
+		});
+
+		card.querySelector('[data-reset]')?.addEventListener('click', async () => {
+			if (!confirm("Remettre l'image d'origine ?")) return;
+			const body = new FormData();
+			body.set('action', 'reset');
+			body.set('slot', slot);
+			try {
+				await post(body);
+				location.assign('/admin/images?enregistre');
+			} catch (error) {
+				say(error instanceof Error ? error.message : "Ça n'a pas marché, réessaie.", true);
+			}
+		});
+	}
+
+	document.querySelectorAll<HTMLElement>('.card[data-slot]').forEach(setup);
+
+	// Aperçus des images d'origine (générés au build)
+	fetch('/admin/defaults.json')
+		.then((response) => response.json() as Promise<Record<string, { src: string; width: number; height: number }>>)
+		.then((defaults) => {
+			document.querySelectorAll<HTMLElement>('.card[data-slot]').forEach((card) => {
+				const original = defaults[card.dataset.slot!];
+				const img = card.querySelector<HTMLImageElement>('img[data-default-preview]');
+				if (!original || !img) return;
+				img.src = original.src;
+				card.querySelector('[data-size]')!.textContent = `${original.width} × ${original.height} px`;
+			});
+		})
+		.catch(() => {});
+</script>

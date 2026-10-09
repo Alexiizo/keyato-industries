@@ -10,5 +10,18 @@
     "twitch": "https://www.twitch.tv/keyatiramisu",
     "instagram": "https://www.instagram.com/keyatoc_",
     "discord": "https://discord.gg/nkBZFxKRzH"
+  },
+  "texts": {
+    "heroTitle1": "Apprends à faire des visuels et à",
+    "heroTitle2": "les améliorer",
+    "packBasique": "Pack Basique",
+    "packPlus": "Pack Plus +",
+    "sectionTitle": "Qu'y a-t-il dans ces vidéos ?",
+    "paperText": "Mon objectif dans ces vidéos c'est vraiment de t'expliquer la base de la création visuelle en prenant en exemple 3 étapes clefs de la création de mes vidéos.\n\nDans le premier pack, tu trouveras 8 vidéos qui parleront :\n- Pipeline\n- Méthode de travail\n- Matériel / logiciel\n- Audio\n- Montage\net encore plein d'autres sujets.\n\nSi t'es intéressé à aller plus loin, dans le deuxième pack, tu pourras retrouver en plus : une introduction à la 3D, une review montage de ce que je fais, des conseils YouTube avec les insides et encore d'autres bonus.\n\nJe rappelle que ce n'est pas un tuto dessin mais que j'expliquerai plutôt un process et une méthode.\n\nSi t'es intéressé, hésite pas à aller check le Patreon. :)",
+    "patreonLabel": "Voir le Patreon",
+    "followLabel": "Viens me suivre !",
+    "copyrightName": "Keyato",
+    "seoTitle": "Améliorer ses visuels — Keyato",
+    "seoDescription": "Apprends à faire des visuels et à les améliorer : 3 étapes, 11 vidéos pour apprendre la technique de Keyato."
   }
 }

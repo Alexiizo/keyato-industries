@@ -1,13 +1,29 @@
-// Cloudflare Workers : la page est servie en fichiers statiques, /admin, /go/* et /video/* par le Worker.
+// Cloudflare Workers : les fichiers statiques sont servis directement ; la page d'accueil, /admin, /go/*, /video/* et
+// /media/* passent par le Worker (src/worker.ts).
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "keyato-industries",
+	"main": "./src/worker.ts",
 	"compatibility_date": "2026-10-01",
 	// node:crypto (session de l'admin)
 	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		// La page d'accueil passe par le Worker, qui y applique les textes et images modifiés dans /admin
+		"run_worker_first": ["/"]
+	},
+	// Sans "id" / nom, les ressources sont créées automatiquement au premier déploiement
 	"kv_namespaces": [
-		// Contenu modifié depuis /admin. Sans "id", l'espace KV est créé automatiquement au premier déploiement.
+		// Contenu modifié depuis /admin (liens, vidéo, textes, références des images)
 		{ "binding": "SITE" }
+	],
+	"r2_buckets": [
+		// Images envoyées depuis /admin
+		{ "binding": "MEDIA" }
+	],
+	"d1_databases": [
+		// Statistiques du site
+		{ "binding": "STATS" }
 	],
 	// Garde les variables définies dans le dashboard Cloudflare (ADMIN_PASSWORD) à chaque déploiement
 	"keep_vars": true,

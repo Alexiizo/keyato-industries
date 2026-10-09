@@ -10,23 +10,23 @@ import packPlus from '../../design/Pack.02.png';
 <section class="hero">
 	<div class="scene" data-cover="0.5" data-cover-delay="0.15">
 		<div class="bg">
-			<Image src={heroBg} alt="" widths={[1280, 1920, 2592]} sizes="100vw" priority />
+			<Image data-slot="heroBg" src={heroBg} alt="" widths={[1280, 1920, 2592]} sizes="100vw" priority />
 		</div>
 
 		<div class="keyato" data-parallax="-0.08" data-exit="left">
-			<Image data-intro="left" src={keyato} alt="" widths={[362, 724, 1664]} sizes="(max-width: 899px) 43vw, 18.9vw" loading="eager" />
+			<Image data-slot="keyato" data-intro="left" src={keyato} alt="" widths={[362, 724, 1664]} sizes="(max-width: 899px) 43vw, 18.9vw" loading="eager" />
 		</div>
 
 		<div class="signs" data-parallax="0.08" data-exit="right">
-			<Image data-intro="drop" src={signs} alt="3 étapes, 11 vidéos pour apprendre ma technique" widths={[352, 704, 1472]} sizes="(max-width: 899px) 40vw, 18.3vw" loading="eager" />
+			<Image data-slot="signs" data-intro="drop" src={signs} alt="3 étapes, 11 vidéos pour apprendre ma technique" widths={[352, 704, 1472]} sizes="(max-width: 899px) 40vw, 18.3vw" loading="eager" />
 		</div>
 
-		<h1 class="display-title cap-trim title" data-intro="down">Apprends à faire des visuels et à <br />les améliorer</h1>
+		<h1 class="display-title cap-trim title" data-text="heroTitle" data-intro="down">Apprends à faire des visuels et à <br />les améliorer</h1>
 
 		<!-- Miniature + bouton lecture ; le lecteur YouTube n'est chargé qu'au clic. La vidéo se règle dans /admin. -->
 		<div class="video" data-intro="zoom">
 			<button class="poster" type="button" aria-label="Lire la vidéo de présentation">
-				<img src="/video/thumbnail" alt="" width="1280" height="720" decoding="async" />
+				<img src="/video/thumbnail" data-video-thumb alt="" width="1280" height="720" decoding="async" />
 				<span class="play" aria-hidden="true">
 					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" /></svg>
 				</span>
@@ -36,17 +36,17 @@ import packPlus from '../../design/Pack.02.png';
 		<div class="ctas">
 			<a class="cta cta--basique" href="/go/basique" target="_blank" rel="noopener" data-intro="up">
 				<span class="packs">
-					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
+					<span class="pack pack--basique"><Image data-slot="packBasique" src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
 				</span>
-				<span class="btn"><span class="cap-trim">Pack Basique</span></span>
+				<span class="btn"><span class="cap-trim" data-text="packBasique">Pack Basique</span></span>
 			</a>
 
 			<a class="cta cta--plus" href="/go/plus" target="_blank" rel="noopener" data-intro="up">
 				<span class="packs">
-					<span class="pack pack--basique"><Image src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
-					<span class="pack pack--plus"><Image src={packPlus} alt="" widths={[92, 184, 333]} sizes="(max-width: 899px) 17vw, 4.8vw" loading="eager" /></span>
+					<span class="pack pack--basique"><Image data-slot="packBasique" src={packBasique} alt="" widths={[137, 274, 497]} sizes="(max-width: 899px) 25vw, 7.1vw" loading="eager" /></span>
+					<span class="pack pack--plus"><Image data-slot="packPlusFront" src={packPlus} alt="" widths={[92, 184, 333]} sizes="(max-width: 899px) 17vw, 4.8vw" loading="eager" /></span>
 				</span>
-				<span class="btn"><span class="cap-trim">Pack Plus +</span></span>
+				<span class="btn"><span class="cap-trim" data-text="packPlus">Pack Plus +</span></span>
 			</a>
 		</div>
 	</div>

@@ -1,25 +1,37 @@
 ---
 import '@fontsource/sniglet/800.css';
-import { Image } from 'astro:assets';
+import { getImage, Image } from 'astro:assets';
 import mainBg from '../../design/Sector.02.png';
 // Paper.png avec les bras prolongés (scripts/extend-paper.mjs)
 import paper from '../assets/paper-extended.png';
+// La même sans texte, affichée quand le texte de la feuille est modifié dans /admin (src/lib/render.ts)
+import paperBlankSrc from '../assets/paper-blank-extended.png';
 import packBasique from '../../design/Pack.01.png';
 import packsDuo from '../../design/Pack.03.png';
 import PackCard from './PackCard.astro';
+
+const paperWidths = [1000, 1960, 2940, 3484];
+const paperBlank = await getImage({ src: paperBlankSrc, widths: paperWidths });
 ---
 
 <section class="details">
 	<div class="bg">
-		<Image src={mainBg} alt="" widths={[1280, 1742]} sizes="100vw" />
+		<Image data-slot="mainBg" src={mainBg} alt="" widths={[1280, 1742]} sizes="100vw" />
 	</div>
 
-	<h2 class="display-title cap-trim title" data-parallax="-0.04" data-reveal="up" data-exit="right">Qu'y a-t-il dans ces vidéos&nbsp;?</h2>
+	<h2 class="display-title cap-trim title" data-text="sectionTitle" data-parallax="-0.04" data-reveal="up" data-exit="right">Qu'y a-t-il dans ces vidéos&nbsp;?</h2>
 
-	<div class="paper" data-parallax="0.04" data-parallax-mobile="0" data-reveal="rise">
-		<Image src={paper} alt="" widths={[1000, 1960, 2940, 3484]} sizes="(max-width: 899px) 1px, 102vw" />
+	<div class="paper" data-paper data-parallax="0.04" data-parallax-mobile="0" data-reveal="rise">
+		<Image
+			src={paper}
+			alt=""
+			widths={paperWidths}
+			sizes="(max-width: 899px) 1px, 102vw"
+			data-blank-src={paperBlank.src}
+			data-blank-srcset={paperBlank.srcSet.attribute}
+		/>
 		<!-- Texte de la feuille : lu par les lecteurs d'écran sur ordinateur (il est dessiné dans l'image), affiché sur mobile -->
-		<div class="paper-text">
+		<div class="paper-text" data-paper-text>
 			<p>
 				Mon objectif dans ces vidéos c'est vraiment de t'expliquer la base de la création visuelle en prenant en exemple 3 étapes
 				clefs de la création de mes vidéos.
@@ -47,7 +59,7 @@ import PackCard from './PackCard.astro';
 		<PackCard variant="plus" href="/go/plus" label="Pack Plus +" pack={packsDuo} />
 	</div>
 
-	<a class="patreon" href="/go/patreon" target="_blank" rel="noopener" data-reveal="pop"><span class="pill"><span class="cap-trim">Voir le Patreon</span></span></a>
+	<a class="patreon" href="/go/patreon" target="_blank" rel="noopener" data-reveal="pop"><span class="pill"><span class="cap-trim" data-text="patreonLabel">Voir le Patreon</span></span></a>
 </section>
 
 <style>
@@ -222,6 +234,42 @@ import PackCard from './PackCard.astro';
 	}
 
 	/*
+	 * Texte de la feuille modifié dans /admin (classe ajoutée par le Worker, src/lib/render.ts) : la feuille d'origine est
+	 * remplacée par la feuille vierge et le texte est écrit en HTML, dans la zone du texte d'origine
+	 * (918–2530 × 254–2077 px de l'image prolongée, soit 0.5617 px maquette par px), resserrée pour passer entre les
+	 * pouces. Trop long, il est rétréci (script). Ses paragraphes sont injectés par le Worker, sans l'attribut du CSS
+	 * scopé d'Astro : d'où les :global().
+	 */
+	@media (min-width: 900px) {
+		.paper--custom .paper-text {
+			left: calc(545 * var(--u));
+			top: calc(142.7 * var(--u));
+			width: calc(830 * var(--u));
+			height: calc(1024 * var(--u));
+			margin: 0;
+			clip: auto;
+			white-space: normal;
+			rotate: -1deg;
+			color: var(--c-ink);
+			font-family: 'Sniglet', system-ui, sans-serif;
+			font-size: calc(32 * var(--u));
+			font-weight: 800;
+			line-height: 1.28;
+		}
+
+		.paper--custom .paper-text :global(p),
+		.paper--custom .paper-text :global(ul) {
+			margin: 0 0 0.8em;
+			padding: 0;
+			list-style: none;
+		}
+
+		.paper--custom .paper-text :global(li)::before {
+			content: '-';
+		}
+	}
+
+	/*
 	 * Mobile : composition empilée, dimensions en px mobile (--m, voir global.css).
 	 * Le texte de la feuille serait illisible dans l'image : il est affiché en vrai texte sur une feuille en CSS.
 	 */
@@ -293,19 +341,19 @@ import PackCard from './PackCard.astro';
 			line-height: 1.3;
 		}
 
-		.paper-text p,
-		.paper-text ul {
+		.paper-text :global(p),
+		.paper-text :global(ul) {
 			margin: 0 0 calc(14 * var(--m));
 			padding: 0;
 			list-style: none;
 		}
 
-		.paper-text p:last-child {
+		.paper-text :global(p:last-child) {
 			margin-bottom: 0;
 		}
 
 		/* Tirets de la liste, comme sur la feuille */
-		.paper-text li::before {
+		.paper-text :global(li)::before {
 			content: '-';
 		}
 
@@ -325,3 +373,30 @@ import PackCard from './PackCard.astro';
 		}
 	}
 </style>
+
+<script>
+	// Texte de la feuille modifié, sur ordinateur : rétréci jusqu'à tenir dans la feuille s'il est trop long
+	const text = document.querySelector<HTMLElement>('.paper--custom .paper-text');
+	const desktop = window.matchMedia('(min-width: 900px)');
+
+	function fit() {
+		if (!text) return;
+		text.style.removeProperty('font-size');
+		if (!desktop.matches) return;
+		let size = parseFloat(getComputedStyle(text).fontSize);
+		while (text.scrollHeight > text.clientHeight + 1 && size > 8) {
+			size *= 0.95;
+			text.style.fontSize = `${size}px`;
+		}
+	}
+
+	if (text) {
+		fit();
+		document.fonts.ready.then(fit);
+		let timer = 0;
+		window.addEventListener('resize', () => {
+			clearTimeout(timer);
+			timer = window.setTimeout(fit, 150);
+		});
+	}
+</script>

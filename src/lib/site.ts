@@ -1,11 +1,13 @@
 import { z } from 'astro/zod';
 import { env } from 'cloudflare:workers';
 import defaults from '../data/site.json';
+import { imageSlotKeys, textGroups } from './content';
 
 /*
- * Contenu modifiable depuis /admin : liens des boutons, vidéo, réseaux sociaux.
- * Valeurs par défaut : src/data/site.json. Les modifications sont enregistrées dans l'espace KV « SITE » de Cloudflare
- * (wrangler.jsonc) ; en dev, dans une copie locale (.wrangler/state).
+ * Contenu modifiable depuis /admin : liens, vidéo, réseaux, textes et images de la page.
+ * Valeurs par défaut : src/data/site.json (et les images d'origine). Les modifications sont enregistrées dans l'espace
+ * KV « SITE » de Cloudflare, les images envoyées dans le bucket R2 « MEDIA » (wrangler.jsonc) ; en dev, dans une copie
+ * locale (.wrangler/state).
  */
 const KEY = 'site';
 
@@ -18,22 +20,68 @@ export function youtubeIdFrom(value: string) {
 	return match?.[1] ?? '';
 }
 
+const textsSchema = z.object(
+	Object.fromEntries(
+		textGroups.flatMap((group) =>
+			group.fields.map((field) => [
+				field.key,
+				z
+					.string()
+					.trim()
+					.min(1, { error: 'Ce texte ne peut pas être vide' })
+					.max(field.max, { error: `${field.max} caractères maximum` }),
+			]),
+		),
+	),
+);
+
+// Image envoyée depuis /admin : ses dimensions et ses déclinaisons (une par largeur) dans R2
+const imageSchema = z.object({
+	width: z.number().int().positive(),
+	height: z.number().int().positive(),
+	variants: z.array(z.object({ w: z.number().int().positive(), key: z.string() })).min(1),
+});
+
 export const schema = z.object({
 	links: z.object({ basique: url, plus: url, patreon: url }),
 	video: z.string().refine((value) => youtubeIdFrom(value) !== '', { error: 'Lien YouTube non reconnu' }),
+	// Miniature de la vidéo, déterminée à l'enregistrement du lien
+	videoThumb: z.string().optional(),
 	socials: z.object({ youtube: url, twitch: url, instagram: url, discord: url }),
+	texts: textsSchema,
+	// Seulement les images remplacées (z.partialRecord : avec des clés d'enum, z.record exigerait toutes les clés)
+	images: z.partialRecord(z.enum(imageSlotKeys as [string, ...string[]]), imageSchema),
 });
 
 export type Site = z.infer<typeof schema>;
+export type SiteImage = z.infer<typeof imageSchema>;
 
+const fallback = schema.parse({ ...defaults, images: {} });
+
+type Saved = Partial<Record<keyof Site, unknown>>;
+const section = <T>(value: unknown, base: T): T => (value && typeof value === 'object' ? { ...base, ...value } : base);
+
+// Le contenu enregistré est complété par les valeurs par défaut : un champ ajouté depuis le dernier enregistrement
+// (ex. les textes, apparus après les liens) reprend sa valeur d'origine.
 export async function getSite(): Promise<Site> {
-	const saved = schema.safeParse(await env.SITE.get(KEY, 'json'));
-	return saved.success ? saved.data : schema.parse(defaults);
+	const saved = ((await env.SITE.get(KEY, 'json')) ?? {}) as Saved;
+	const merged = {
+		...fallback,
+		...saved,
+		links: section(saved.links, fallback.links),
+		socials: section(saved.socials, fallback.socials),
+		texts: section(saved.texts, fallback.texts),
+		images: section(saved.images, {}),
+	};
+	const result = schema.safeParse(merged);
+	return result.success ? result.data : fallback;
 }
 
 export async function saveSite(site: Site) {
 	await env.SITE.put(KEY, JSON.stringify(site));
 }
+
+export const defaultTexts = fallback.texts;
 
 // Destination des liens /go/<clé> : boutons (basique, plus, patreon) et réseaux (youtube, twitch, instagram, discord)
 export async function linkTarget(key: string): Promise<string | undefined> {

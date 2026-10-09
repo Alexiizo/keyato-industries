@@ -1,0 +1,119 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { adminAuth } from '../../lib/auth';
+import { getSite, saveSite, schema, thumbnailUrl, youtubeIdFrom, type Site } from '../../lib/site';
+
+// Admin, onglet « Liens & vidéo » : liens des boutons, vidéo de présentation, réseaux sociaux
+export const prerender = false;
+
+const auth = await adminAuth(Astro);
+if (auth.response) return auth.response;
+
+const flatten = (site: Pick<Site, 'links' | 'video' | 'socials'>) => ({ ...site.links, video: site.video, ...site.socials });
+
+let errors: Record<string, string> = {};
+let values: Record<string, string> = {};
+
+if (auth.loggedIn) {
+	const site = await getSite();
+	values = flatten(site);
+
+	if (auth.form?.get('action') === 'save') {
+		const field = (name: string) => String(auth.form!.get(name) ?? '').trim();
+		const data = {
+			...site,
+			links: { basique: field('basique'), plus: field('plus'), patreon: field('patreon') },
+			video: field('video'),
+			socials: { youtube: field('youtube'), twitch: field('twitch'), instagram: field('instagram'), discord: field('discord') },
+		};
+		const result = schema.safeParse(data);
+		if (result.success) {
+			// Miniature de la vidéo, posée directement dans la page par le Worker
+			await saveSite({ ...result.data, videoThumb: await thumbnailUrl(youtubeIdFrom(result.data.video)) });
+			return Astro.redirect('/admin/liens?enregistre', 303);
+		}
+		errors = Object.fromEntries(result.error.issues.map((issue) => [String(issue.path.at(-1)), issue.message]));
+		values = flatten(data);
+	}
+}
+
+const saved = Astro.url.searchParams.has('enregistre') && !Object.keys(errors).length;
+const videoId = youtubeIdFrom(values.video ?? '');
+
+type Field = { name: string; label: string; hint?: string };
+
+const sections: { title: string; fields: Field[] }[] = [
+	{
+		title: 'Boutons Patreon',
+		fields: [
+			{ name: 'basique', label: 'Bouton « Pack Basique »', hint: 'Le bouton du haut et la carte du bas.' },
+			{ name: 'plus', label: 'Bouton « Pack Plus + »', hint: 'Le bouton du haut et la carte du bas.' },
+			{ name: 'patreon', label: 'Bouton « Voir le Patreon »', hint: "Aussi l'icône Patreon du bas de page." },
+		],
+	},
+	{
+		title: 'Vidéo de présentation',
+		fields: [{ name: 'video', label: 'Lien YouTube', hint: 'Par exemple https://www.youtube.com/watch?v=…' }],
+	},
+	{
+		title: 'Réseaux sociaux',
+		fields: [
+			{ name: 'youtube', label: 'YouTube' },
+			{ name: 'twitch', label: 'Twitch' },
+			{ name: 'instagram', label: 'Instagram' },
+			{ name: 'discord', label: 'Discord' },
+		],
+	},
+];
+---
+
+<AdminLayout title="Liens & vidéo" active="liens" auth={auth}>
+	{saved && <p class="banner">C'est enregistré, le site est à jour.</p>}
+	{Object.keys(errors).length > 0 && <p class="banner banner--error">Rien n'a été enregistré : corrige les champs en rouge.</p>}
+
+	<form method="post" class="form">
+		<input type="hidden" name="action" value="save" />
+		{
+			sections.map((section) => (
+				<fieldset>
+					<legend>{section.title}</legend>
+					{section.fields.map((field) => (
+						<div class="field">
+							<label for={field.name}>{field.label}</label>
+							<input
+								id={field.name}
+								name={field.name}
+								type="url"
+								required
+								value={values[field.name]}
+								aria-invalid={errors[field.name] ? 'true' : undefined}
+							/>
+							{errors[field.name] ? <p class="error">{errors[field.name]}</p> : field.hint && <p class="hint">{field.hint}</p>}
+							{field.name === 'video' && videoId && (
+								<img class="thumb" src={`https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`} alt="Miniature de la vidéo actuelle" width="320" height="180" />
+							)}
+						</div>
+					))}
+				</fieldset>
+			))
+		}
+		<div class="actions">
+			<button class="button" type="submit">Enregistrer</button>
+		</div>
+	</form>
+</AdminLayout>
+
+<style>
+	.form {
+		max-width: 640px;
+	}
+
+	.thumb {
+		display: block;
+		width: 240px;
+		height: auto;
+		margin-top: 10px;
+		border: 3px solid #260c69;
+		border-radius: 12px;
+	}
+</style>

@@ -1,0 +1,334 @@
+---
+import '@fontsource/londrina-solid/900.css';
+import type { AdminAuth } from '../lib/auth';
+import faviconIco from '../assets/icons/favicon-admin.ico?url';
+import faviconPng from '../assets/icons/favicon-admin.png?url';
+
+interface Props {
+	title: string;
+	active: 'stats' | 'textes' | 'images' | 'liens';
+	auth: AdminAuth;
+}
+
+const { title, active, auth } = Astro.props;
+
+const tabs = [
+	{ key: 'stats', label: 'Statistiques', href: '/admin' },
+	{ key: 'textes', label: 'Textes', href: '/admin/textes' },
+	{ key: 'images', label: 'Images', href: '/admin/images' },
+	{ key: 'liens', label: 'Liens & vidéo', href: '/admin/liens' },
+];
+---
+
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<link rel="icon" href={faviconIco} sizes="48x48" />
+		<link rel="icon" type="image/png" href={faviconPng} sizes="192x192" />
+		<title>{auth.loggedIn ? `${title} — Admin Keyato` : 'Admin — Keyato'}</title>
+	</head>
+	<body class="admin">
+		{
+			!auth.enabled && (
+				<main class="panel panel--narrow">
+					<h1>Admin du site</h1>
+					<p>
+						L'admin n'est pas activé : définis la variable d'environnement <code>ADMIN_PASSWORD</code> (voir docs/admin.md).
+					</p>
+				</main>
+			)
+		}
+
+		{
+			auth.enabled && !auth.loggedIn && (
+				<main class="panel panel--narrow">
+					<h1>Admin du site</h1>
+					<form method="post" class="login">
+						<input type="hidden" name="action" value="login" />
+						<label for="password">Mot de passe</label>
+						<input id="password" name="password" type="password" autocomplete="current-password" required autofocus />
+						{auth.loginError && <p class="error">{auth.loginError}</p>}
+						<button class="button" type="submit">
+							Se connecter
+						</button>
+					</form>
+				</main>
+			)
+		}
+
+		{
+			auth.loggedIn && (
+				<main class="panel">
+					<header class="top">
+						<h1>Admin du site</h1>
+						<div class="top-links">
+							<a href="/" target="_blank" rel="noopener">
+								Voir le site ↗
+							</a>
+							<form method="post" action="/admin">
+								<input type="hidden" name="action" value="logout" />
+								<button type="submit">Se déconnecter</button>
+							</form>
+						</div>
+					</header>
+					<nav class="tabs" aria-label="Sections de l'admin">
+						{
+							tabs.map((tab) => (
+								<a href={tab.href} class:list={['tab', { 'tab--active': tab.key === active }]} aria-current={tab.key === active ? 'page' : undefined}>
+									{tab.label}
+								</a>
+							))
+						}
+					</nav>
+					<slot />
+				</main>
+			)
+		}
+	</body>
+</html>
+
+<style is:global>
+	.admin *,
+	.admin *::before,
+	.admin *::after {
+		box-sizing: border-box;
+	}
+
+	/* Le panneau est centré dans l'écran ; plus haut que l'écran, il part simplement du haut */
+	body.admin {
+		display: grid;
+		place-items: center;
+		margin: 0;
+		min-height: 100vh;
+		padding: 48px 16px;
+		background: #9068ec;
+		color: #260c69;
+		font-family: system-ui, sans-serif;
+		line-height: 1.4;
+	}
+
+	.admin .panel {
+		width: 100%;
+		max-width: 980px;
+		padding: 32px;
+		border: 6px solid #260c69;
+		border-radius: 32px;
+		background: #ffe5f5;
+	}
+
+	.admin .panel--narrow {
+		max-width: 440px;
+		text-align: center;
+	}
+
+	.admin h1,
+	.admin h2,
+	.admin legend,
+	.admin .button,
+	.admin .tab {
+		font-family: 'Londrina Solid', system-ui, sans-serif;
+		font-weight: 900;
+	}
+
+	.admin h1 {
+		margin: 0;
+		font-size: 44px;
+		line-height: 1;
+	}
+
+	.admin .panel--narrow h1 {
+		margin-bottom: 16px;
+	}
+
+	.admin h2,
+	.admin legend {
+		margin: 0 0 4px;
+		font-size: 28px;
+		line-height: 1.1;
+	}
+
+	.admin .top {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px 24px;
+	}
+
+	.admin .top-links {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		font-weight: 600;
+	}
+
+	.admin .top-links a,
+	.admin .top-links button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.admin .tabs {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 24px 0 8px;
+		padding-bottom: 20px;
+		border-bottom: 3px solid #260c69;
+	}
+
+	.admin .tab {
+		padding: 8px 20px;
+		border: 3px solid #260c69;
+		border-radius: 999px;
+		background: #fff;
+		color: #260c69;
+		font-size: 22px;
+		text-decoration: none;
+		transition: background-color 0.15s;
+	}
+
+	.admin .tab:hover {
+		background: #f3e9ff;
+	}
+
+	.admin .tab--active,
+	.admin .tab--active:hover {
+		background: #7962e9;
+		color: #fff;
+	}
+
+	.admin fieldset {
+		margin: 28px 0 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.admin .field {
+		margin-top: 14px;
+	}
+
+	.admin label {
+		display: block;
+		margin-bottom: 6px;
+		font-weight: 600;
+	}
+
+	.admin input,
+	.admin textarea {
+		width: 100%;
+		padding: 12px 14px;
+		border: 3px solid #260c69;
+		border-radius: 14px;
+		background: #fff;
+		color: inherit;
+		font: inherit;
+	}
+
+	.admin textarea {
+		resize: vertical;
+	}
+
+	.admin input:focus,
+	.admin textarea:focus {
+		outline: 3px solid #7962e9;
+		outline-offset: 2px;
+	}
+
+	.admin [aria-invalid='true'] {
+		border-color: #c0143c;
+	}
+
+	.admin .hint,
+	.admin .error {
+		margin: 4px 0 0;
+		font-size: 14px;
+	}
+
+	.admin .hint {
+		opacity: 0.75;
+	}
+
+	.admin .error {
+		color: #c0143c;
+		font-weight: 600;
+	}
+
+	.admin .button {
+		padding: 10px 32px;
+		border: 0;
+		border-radius: 999px;
+		background: #7962e9;
+		color: #fff;
+		font-size: 26px;
+		cursor: pointer;
+		transition: scale 0.2s;
+	}
+
+	.admin .button:hover {
+		scale: 1.04;
+	}
+
+	.admin .button:disabled {
+		opacity: 0.6;
+		cursor: progress;
+		scale: 1;
+	}
+
+	.admin .login label {
+		text-align: left;
+	}
+
+	.admin .login .button {
+		margin-top: 16px;
+	}
+
+	.admin .actions {
+		position: sticky;
+		bottom: 16px;
+		display: flex;
+		align-items: center;
+		gap: 24px;
+		margin-top: 32px;
+	}
+
+	.admin .banner {
+		margin: 16px 0 0;
+		padding: 12px 16px;
+		border-radius: 14px;
+		background: #edce00;
+		font-weight: 600;
+	}
+
+	.admin .banner--error {
+		background: #c0143c;
+		color: #fff;
+	}
+
+	.admin code {
+		font-weight: 600;
+	}
+
+	@media (max-width: 600px) {
+		body.admin {
+			padding: 16px 8px;
+		}
+
+		.admin .panel {
+			padding: 20px 16px;
+			border-radius: 24px;
+		}
+
+		.admin h1 {
+			font-size: 36px;
+		}
+	}
+</style>

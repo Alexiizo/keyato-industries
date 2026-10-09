@@ -12,4 +12,4 @@ npm run deploy   # build + déploiement (normalement fait par Cloudflare à chaq
 
 - Maquette : `design/maquette-1920.png`, relevés dans `docs/maquette.md`
 - En dev, `M` affiche la maquette par-dessus la page (`D` différence, `↑/↓` opacité)
-- Liens, vidéo et réseaux sociaux modifiables depuis `/admin` (mot de passe dans `.env`) : voir `docs/admin.md`
+- Back-office `/admin` (mot de passe dans `.env`) : statistiques, textes, images, liens et vidéo. Voir `docs/admin.md`
