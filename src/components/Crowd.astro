@@ -36,7 +36,7 @@ const year = new Date().getFullYear();
 			}
 		</ul>
 
-		<p class="display-title cap-trim copyright" data-reveal="up">© {year} <span data-text="copyrightName">Keyato</span></p>
+		<p class="display-title cap-trim copyright" data-reveal="up">© {year} <span data-text="copyrightName">Keyato</span> · <a href="/statistiques">Statistiques de visite</a></p>
 	</div>
 </footer>
 
@@ -113,6 +113,19 @@ const year = new Date().getFullYear();
 
 	.social:focus-visible {
 		box-shadow: 0 0 0 calc(4 * var(--u)) var(--c-navy);
+	}
+
+	/* Lien vers l'information sur la mesure d'audience (obligatoire pour le cookie de statistiques) */
+	.copyright a {
+		text-decoration: underline;
+		text-decoration-thickness: 0.08em;
+		text-underline-offset: 0.15em;
+		transition: color 0.15s;
+	}
+
+	.copyright a:hover,
+	.copyright a:focus-visible {
+		color: var(--c-basique);
 	}
 
 	.copyright {

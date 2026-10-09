@@ -1,0 +1,201 @@
+---
+import '@fontsource/londrina-solid/900.css';
+import { COOKIE_MAX_AGE, OPTOUT_COOKIE, VISITOR_COOKIE } from '../lib/stats';
+import faviconIco from '../assets/icons/favicon.ico?url';
+import faviconPng from '../assets/icons/favicon.png?url';
+
+/*
+ * Information sur la mesure d'audience et opposition (cadre CNIL de l'exemption de consentement), liée en bas de page.
+ * Le cookie kv_optout coupe toute mesure (src/lib/stats.ts).
+ */
+export const prerender = false;
+
+if (Astro.request.method === 'POST') {
+	const form = await Astro.request.formData();
+	const secure = Astro.url.protocol === 'https:';
+	if (form.get('action') === 'optout') {
+		Astro.cookies.set(OPTOUT_COOKIE, '1', { path: '/', maxAge: COOKIE_MAX_AGE, sameSite: 'lax', httpOnly: true, secure });
+		Astro.cookies.delete(VISITOR_COOKIE, { path: '/' });
+	} else if (form.get('action') === 'optin') {
+		Astro.cookies.delete(OPTOUT_COOKIE, { path: '/' });
+	}
+	return Astro.redirect('/statistiques', 303);
+}
+
+const gpc = Astro.request.headers.get('sec-gpc') === '1';
+const optedOut = Astro.cookies.get(OPTOUT_COOKIE)?.value === '1';
+---
+
+<!doctype html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<link rel="icon" href={faviconIco} sizes="48x48" />
+		<link rel="icon" type="image/png" href={faviconPng} sizes="192x192" />
+		<title>Statistiques de visite — Keyato</title>
+	</head>
+	<body>
+		<main class="panel">
+			<h1>Statistiques de visite</h1>
+			<p>
+				Pour savoir combien de personnes visitent ce site et ce qui les intéresse, on compte les visites, les clics sur les
+				boutons et les lectures de la vidéo. Ces chiffres servent uniquement à améliorer le site : ils ne sont ni revendus, ni
+				partagés, ni croisés avec d'autres données.
+			</p>
+			<ul>
+				<li>
+					Un cookie <code>{VISITOR_COOKIE}</code> contenant un identifiant tiré au hasard est déposé pour 13 mois au plus, sans
+					jamais être prolongé. Il sert seulement à reconnaître un visiteur qui revient.
+				</li>
+				<li>Aucune adresse IP n'est enregistrée. Sans cookie, une empreinte anonyme, renouvelée chaque jour, est utilisée.</li>
+				<li>Les données sont conservées 13 mois au plus, puis effacées.</li>
+				<li>Le réglage « Global Privacy Control » de ton navigateur est respecté : s'il est activé, tu n'es pas compté.</li>
+			</ul>
+
+			<div class="status">
+				{
+					gpc ? (
+						<p>
+							<strong>Tu n'es pas compté</strong> : ton navigateur demande à ne pas être suivi (Global Privacy Control).
+						</p>
+					) : optedOut ? (
+						<form method="post">
+							<p>
+								<strong>Tu n'es pas compté</strong> dans les statistiques de ce site.
+							</p>
+							<input type="hidden" name="action" value="optin" />
+							<button class="button button--light" type="submit">
+								Être de nouveau compté
+							</button>
+						</form>
+					) : (
+						<form method="post">
+							<p>
+								<strong>Tu es compté</strong> dans les statistiques de ce site.
+							</p>
+							<input type="hidden" name="action" value="optout" />
+							<button class="button" type="submit">
+								Ne pas être compté
+							</button>
+						</form>
+					)
+				}
+			</div>
+
+			<a class="back" href="/">← Retour au site</a>
+		</main>
+	</body>
+</html>
+
+<style>
+	:global(*),
+	:global(*::before),
+	:global(*::after) {
+		box-sizing: border-box;
+	}
+
+	:global(body) {
+		display: grid;
+		place-items: center;
+		margin: 0;
+		min-height: 100vh;
+		padding: 48px 16px;
+		background: #9068ec;
+		color: #260c69;
+		font-family: system-ui, sans-serif;
+		line-height: 1.5;
+	}
+
+	.panel {
+		width: 100%;
+		max-width: 640px;
+		padding: 32px;
+		border: 6px solid #260c69;
+		border-radius: 32px;
+		background: #ffe5f5;
+	}
+
+	h1,
+	.button {
+		font-family: 'Londrina Solid', system-ui, sans-serif;
+		font-weight: 900;
+	}
+
+	h1 {
+		margin: 0 0 16px;
+		font-size: 44px;
+		line-height: 1;
+	}
+
+	ul {
+		margin: 16px 0 0;
+		padding-left: 20px;
+	}
+
+	li + li {
+		margin-top: 8px;
+	}
+
+	code {
+		font-weight: 600;
+	}
+
+	.status {
+		margin-top: 24px;
+		padding: 16px 20px;
+		border: 3px solid #260c69;
+		border-radius: 20px;
+		background: #fff;
+	}
+
+	.status p {
+		margin: 0 0 12px;
+	}
+
+	.status p:last-child {
+		margin-bottom: 0;
+	}
+
+	.button {
+		padding: 8px 28px;
+		border: 0;
+		border-radius: 999px;
+		background: #7962e9;
+		color: #fff;
+		font-size: 24px;
+		cursor: pointer;
+		transition: scale 0.2s;
+	}
+
+	.button:hover {
+		scale: 1.04;
+	}
+
+	.button--light {
+		background: #edce00;
+		color: #260c69;
+	}
+
+	.back {
+		display: inline-block;
+		margin-top: 24px;
+		color: inherit;
+		font-weight: 600;
+	}
+
+	@media (max-width: 600px) {
+		:global(body) {
+			padding: 16px 8px;
+		}
+
+		.panel {
+			padding: 24px 18px;
+		}
+
+		h1 {
+			font-size: 36px;
+		}
+	}
+</style>

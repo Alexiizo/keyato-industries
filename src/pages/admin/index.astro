@@ -29,13 +29,24 @@ function delta(current: number, previous: number) {
 const kpis = stats
 	? [
 			{ label: 'Visites', value: stats.current.views, previous: stats.previous.views },
-			{ label: 'Visiteurs', value: stats.current.visitors, previous: stats.previous.visitors },
+			{ label: 'Visiteurs uniques', value: stats.current.visitors, previous: stats.previous.visitors },
 			{ label: 'Clics vers Patreon', value: stats.current.packClicks, previous: stats.previous.packClicks },
 			{ label: 'Lectures de la vidéo', value: stats.current.videos, previous: stats.previous.videos },
 		]
 	: [];
-const conversion = stats && stats.current.visitors > 0 ? stats.current.packClicks / stats.current.visitors : null;
-const previousConversion = stats && stats.previous.visitors > 0 ? stats.previous.packClicks / stats.previous.visitors : null;
+// Conversion : part des visiteurs qui ont cliqué au moins une fois vers Patreon
+const conversion = stats && stats.current.visitors > 0 ? stats.current.converted / stats.current.visitors : null;
+const previousConversion = stats && stats.previous.visitors > 0 ? stats.previous.converted / stats.previous.visitors : null;
+
+// Fidélité (visiteurs reconnus par leur cookie)
+function duration(ms: number) {
+	const hours = ms / 3_600_000;
+	if (hours < 1) return 'moins d’une heure';
+	if (hours < 48) return `${Math.round(hours)} h`;
+	return `${Math.round(hours / 24)} jours`;
+}
+const fidelity = stats?.fidelity;
+const coverage = stats && stats.current.visitors > 0 && fidelity ? fidelity.known / stats.current.visitors : null;
 
 // Visites par jour, jours sans visite compris
 const dayList: string[] = [];
@@ -85,16 +96,22 @@ const countryName = (code: string) => {
 	}
 };
 
-const breakdowns = stats
+type Row = { label: string; n: number; detail?: string };
+
+const breakdowns: { title: string; note: string; rows: Row[] }[] = stats
 	? [
-			{ title: 'Clics par bouton', note: 'Boutons Patreon, cartes et réseaux du bas de page.', rows: clicks },
 			{
-				title: 'D’où viennent les visiteurs',
-				note: 'Site d’où vient le clic. Les visites directes (lien tapé, appli) ne sont pas listées.',
-				rows: stats.referrers.map((row) => ({ label: row.referrer, n: row.n })),
+				title: 'Sources et conversion',
+				note: 'D’où arrivent les visiteurs (site de leur première visite de la période) et la part qui clique vers Patreon.',
+				rows: stats.sources.map((row) => ({
+					label: row.source || 'Accès direct',
+					n: row.visitors,
+					detail: `${percent.format(row.visitors ? row.converted / row.visitors : 0)} ont cliqué`,
+				})),
 			},
-			{ title: 'Appareils', note: 'Visites par type d’appareil.', rows: stats.devices.map((row) => ({ label: deviceLabels[row.device] ?? row.device, n: row.n })) },
-			{ title: 'Pays', note: 'Visites par pays.', rows: stats.countries.map((row) => ({ label: countryName(row.country), n: row.n })) },
+			{ title: 'Clics par bouton', note: 'Boutons Patreon, cartes et réseaux du bas de page.', rows: clicks },
+			{ title: 'Appareils', note: 'Visiteurs par type d’appareil.', rows: stats.devices.map((row) => ({ label: deviceLabels[row.device] ?? row.device, n: row.n })) },
+			{ title: 'Pays', note: 'Visiteurs par pays.', rows: stats.countries.map((row) => ({ label: countryName(row.country), n: row.n })) },
 		]
 	: [];
 
@@ -135,11 +152,11 @@ const empty = stats !== null && stats.current.views === 0 && stats.current.packC
 						);
 					})}
 					<div class="kpi">
-						<p class="kpi-label">Taux de clic</p>
+						<p class="kpi-label">Taux de conversion</p>
 						<p class="kpi-value">{conversion === null ? '—' : percent.format(conversion)}</p>
 						<p class="kpi-delta kpi-delta--neutral">
 							{conversion !== null && previousConversion !== null ? `${percent.format(previousConversion)} avant · ` : ''}
-							<span>clics vers Patreon par visiteur</span>
+							<span>des visiteurs ont cliqué vers Patreon</span>
 						</p>
 					</div>
 				</section>
@@ -202,6 +219,38 @@ const empty = stats !== null && stats.current.views === 0 && stats.current.packC
 					</details>
 				</section>
 
+				{fidelity && (
+					<section class="card" aria-labelledby="fidelity-title">
+						<h2 id="fidelity-title">Fidélité</h2>
+						<p class="note">
+							Visiteurs reconnus d’un jour à l’autre grâce au cookie de mesure
+							{coverage !== null && ` : ${number.format(fidelity.known)} sur ${number.format(stats.current.visitors)} (${percent.format(coverage)})`}. Les
+							autres (navigation privée, refus) ne sont comptés que le jour de leur visite.
+						</p>
+						<div class="facts">
+							<div class="fact">
+								<p class="fact-value">{number.format(fidelity.fresh)}</p>
+								<p class="fact-label">nouveaux visiteurs</p>
+							</div>
+							<div class="fact">
+								<p class="fact-value">{number.format(fidelity.returning)}</p>
+								<p class="fact-label">déjà venus avant la période</p>
+							</div>
+							<div class="fact">
+								<p class="fact-value">{number.format(fidelity.regulars)}</p>
+								<p class="fact-label">venus plusieurs jours</p>
+							</div>
+							<div class="fact">
+								<p class="fact-value">{fidelity.medianDelay === null ? '—' : duration(fidelity.medianDelay)}</p>
+								<p class="fact-label">
+									entre la première visite et le clic vers Patreon (médiane
+									{fidelity.delaySample > 0 && ` sur ${number.format(fidelity.delaySample)} visiteur${fidelity.delaySample > 1 ? 's' : ''}`})
+								</p>
+							</div>
+						</div>
+					</section>
+				)}
+
 				<div class="breakdowns">
 					{breakdowns.map((block) => {
 						const max = Math.max(1, ...block.rows.map((row) => row.n));
@@ -219,6 +268,7 @@ const empty = stats !== null && stats.current.views === 0 && stats.current.packC
 												<span class="hbar-track">
 													{row.n > 0 && <span class="hbar" style={`width: ${(row.n / max) * 100}%`} />}
 													<span class="hbar-value">{number.format(row.n)}</span>
+													{row.detail && <span class="hbar-detail">{row.detail}</span>}
 												</span>
 											</li>
 										))}
@@ -230,8 +280,9 @@ const empty = stats !== null && stats.current.views === 0 && stats.current.packC
 				</div>
 
 				<p class="footnote">
-					Sans cookie et sans stocker d’adresse IP : un visiteur est reconnu le temps d’une journée, puis devient anonyme. Les
-					robots (moteurs de recherche, aperçus de liens) ne sont pas comptés. Tes propres visites du site, elles, le sont.
+					Mesure d’audience sans bandeau de consentement : cookie à identifiant aléatoire de 13 mois, aucune adresse IP
+					enregistrée, données gardées 13 mois. Les visiteurs peuvent refuser d’être comptés sur la page <a href="/statistiques" target="_blank">Statistiques de visite</a> (lien en bas du site). Les robots ne sont pas comptés ;
+					tes propres visites du site, elles, le sont.
 				</p>
 			</>
 		)
@@ -519,6 +570,44 @@ const empty = stats !== null && stats.current.views === 0 && stats.current.packC
 		height: 14px;
 		border-radius: 0 4px 4px 0;
 		background: #7962e9;
+	}
+
+	.hbar-detail {
+		font-size: 13px;
+		opacity: 0.75;
+		white-space: nowrap;
+	}
+
+	.facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+		gap: 12px;
+		margin-top: 14px;
+	}
+
+	.fact {
+		padding: 12px 14px;
+		border-radius: 14px;
+		background: #f6f1ff;
+	}
+
+	.fact p {
+		margin: 0;
+	}
+
+	.fact-value {
+		font-size: 28px;
+		font-weight: 700;
+		line-height: 1.1;
+	}
+
+	.fact-label {
+		margin-top: 4px !important;
+		font-size: 13px;
+	}
+
+	.footnote a {
+		color: inherit;
 	}
 
 	.hbar-value {

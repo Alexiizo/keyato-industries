@@ -1,6 +1,6 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import { applyContent } from './lib/render';
-import { record } from './lib/stats';
+import { isTracked, record, visitorCookie, visitorCookieHeader } from './lib/stats';
 
 /*
  * Point d'entrée du Worker (wrangler.jsonc → main). Tout passe par Astro ; pour la page d'accueil (pré-générée,
@@ -19,7 +19,13 @@ export default {
 		const response = await handle(new Request(request, { headers }), env, ctx);
 		if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) return response;
 
-		ctx.waitUntil(record(request, 'view'));
-		return applyContent(response);
+		const page = await applyContent(response);
+		if (!isTracked(request)) return page;
+
+		// Cookie de mesure d'audience déposé à la première visite, jamais prolongé ensuite (voir src/lib/stats.ts)
+		const { vid, isNew } = visitorCookie(request);
+		ctx.waitUntil(record(request, 'view', null, vid));
+		if (isNew) page.headers.append('Set-Cookie', visitorCookieHeader(vid, url.protocol === 'https:'));
+		return page;
 	},
 } satisfies ExportedHandler<Env>;
