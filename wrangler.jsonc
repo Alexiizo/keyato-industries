@@ -12,18 +12,19 @@
 		// La page d'accueil passe par le Worker, qui y applique les textes et images modifiés dans /admin
 		"run_worker_first": ["/"]
 	},
-	// Sans "id" / nom, les ressources sont créées automatiquement au premier déploiement
+	// Sans "id", l'espace KV a été créé automatiquement au premier déploiement (et est repris ensuite)
 	"kv_namespaces": [
 		// Contenu modifié depuis /admin (liens, vidéo, textes, références des images)
 		{ "binding": "SITE" }
 	],
 	"r2_buckets": [
-		// Images envoyées depuis /admin
-		{ "binding": "MEDIA" }
+		// Images envoyées depuis /admin. Nommé : sans nom, la création automatique au déploiement échoue
+		// (« previous version does not have binding named 'MEDIA' »). Créé au déploiement s'il n'existe pas.
+		{ "binding": "MEDIA", "bucket_name": "keyato-industries-media" }
 	],
 	"d1_databases": [
-		// Statistiques du site
-		{ "binding": "STATS" }
+		// Statistiques du site (base créée automatiquement au déploiement du 9 octobre 2026)
+		{ "binding": "STATS", "database_name": "keyato-industries-stats", "database_id": "6c32cc50-fd78-4136-8b5a-128adc754931" }
 	],
 	// Garde les variables définies dans le dashboard Cloudflare (ADMIN_PASSWORD) à chaque déploiement
 	"keep_vars": true,
