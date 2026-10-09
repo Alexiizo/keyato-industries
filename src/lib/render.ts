@@ -4,7 +4,7 @@ import { defaultTexts, getSite, type Site } from './site';
  * Applique le contenu de /admin à la page d'accueil pré-générée, à la volée (HTMLRewriter de Cloudflare) :
  * la page et ses images d'origine restent optimisées au build, seuls les textes et images modifiés changent.
  *   data-text="<clé>"   texte remplacé
- *   data-slot="<clé>"   image remplacée par celle envoyée dans R2 (servie par /media/…)
+ *   data-slot="<clé>"   image remplacée par celle envoyée depuis /admin (servie par /media/…)
  *   data-paper / data-paper-text / data-blank-*   texte de la feuille (voir Details.astro)
  */
 

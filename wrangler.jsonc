@@ -1,5 +1,5 @@
 // Cloudflare Workers : les fichiers statiques sont servis directement ; la page d'accueil, /admin, /go/*, /video/* et
-// /media/* passent par le Worker (src/worker.ts).
+// /media/* passent par le Worker (src/worker.ts). Pas de R2 : sa création automatique échoue dans Workers Builds.
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "keyato-industries",
@@ -14,13 +14,8 @@
 	},
 	// Sans "id", l'espace KV a été créé automatiquement au premier déploiement (et est repris ensuite)
 	"kv_namespaces": [
-		// Contenu modifié depuis /admin (liens, vidéo, textes, références des images)
+		// Contenu modifié depuis /admin (liens, vidéo, textes) et images envoyées (src/lib/media.ts)
 		{ "binding": "SITE" }
-	],
-	"r2_buckets": [
-		// Images envoyées depuis /admin. Nommé : sans nom, la création automatique au déploiement échoue
-		// (« previous version does not have binding named 'MEDIA' »). Créé au déploiement s'il n'existe pas.
-		{ "binding": "MEDIA", "bucket_name": "keyato-industries-media" }
 	],
 	"d1_databases": [
 		// Statistiques du site (base créée automatiquement au déploiement du 9 octobre 2026)

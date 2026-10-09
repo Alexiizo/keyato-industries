@@ -6,7 +6,7 @@ import { imageSlotKeys, textGroups } from './content';
 /*
  * Contenu modifiable depuis /admin : liens, vidéo, réseaux, textes et images de la page.
  * Valeurs par défaut : src/data/site.json (et les images d'origine). Les modifications sont enregistrées dans l'espace
- * KV « SITE » de Cloudflare, les images envoyées dans le bucket R2 « MEDIA » (wrangler.jsonc) ; en dev, dans une copie
+ * KV « SITE » de Cloudflare, les images envoyées aussi (src/lib/media.ts) ; en dev, dans une copie
  * locale (.wrangler/state).
  */
 const KEY = 'site';
@@ -35,7 +35,7 @@ const textsSchema = z.object(
 	),
 );
 
-// Image envoyée depuis /admin : ses dimensions et ses déclinaisons (une par largeur) dans R2
+// Image envoyée depuis /admin : ses dimensions et ses déclinaisons (une par largeur, clés de src/lib/media.ts)
 const imageSchema = z.object({
 	width: z.number().int().positive(),
 	height: z.number().int().positive(),

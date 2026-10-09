@@ -15,7 +15,7 @@ Tout est en ligne dès l'enregistrement, sans rebuild.
 
 - **La page reste pré-générée** (images d'origine optimisées au build). `src/worker.ts` la fait passer par le Worker (`assets.run_worker_first: ["/"]` dans `wrangler.jsonc`), qui y applique le contenu de l'admin avec `HTMLRewriter` (`src/lib/render.ts`) : éléments `data-text="<clé>"` (textes) et `data-slot="<clé>"` (images).
 - **Contenu** : `src/lib/site.ts` (schéma et lecture/écriture), `src/lib/content.ts` (liste des textes et des images modifiables). Valeurs par défaut dans `src/data/site.json`, contenu enregistré dans l'espace KV `SITE`. Un champ absent du contenu enregistré reprend sa valeur par défaut.
-- **Images** : le navigateur de l'admin les décline aux largeurs utiles et les convertit en WebP avant l'envoi (`src/pages/admin/images.astro`) ; `src/pages/admin/upload.ts` les range dans le bucket R2 `MEDIA`, servies par `/media/…` avec un cache d'un an (clé unique par envoi).
+- **Images** : le navigateur de l'admin les décline aux largeurs utiles et les convertit en WebP avant l'envoi (`src/pages/admin/images.astro`) ; `src/pages/admin/upload.ts` les range dans KV (`src/lib/media.ts`, clés `media/…`), servies par `/media/…` avec un cache d'un an (clé unique par envoi) et une copie dans le cache de Cloudflare. KV plutôt que R2 : la création automatique d'un bucket R2 échoue dans Workers Builds.
 - **Texte de la feuille** : dessiné dans l'image sur ordinateur. Tant qu'il n'est pas modifié, la feuille d'origine reste affichée. Modifié, la page affiche la feuille vierge (`src/assets/paper-blank-extended.png`, générée par `scripts/extend-paper.mjs`) avec le texte en HTML, rétréci s'il est trop long.
 - **Liens** : la page pointe vers `/go/<clé>` (redirection vers le lien enregistré) et la vidéo vers `/video/embed.json` ; la miniature est posée par le Worker.
 - **Statistiques** (`src/lib/stats.ts`, base D1 `STATS`) : une ligne par visite de la page (enregistrée par le Worker), clic (`/go/…`) ou lecture de la vidéo. Sans cookie et sans adresse IP : un visiteur est une empreinte (IP + navigateur + jour + sel secret) qui change chaque jour. Robots et préchargements ignorés. La table est créée au premier usage ; on garde environ 400 jours d'historique.
@@ -24,7 +24,7 @@ Tout est en ligne dès l'enregistrement, sans rebuild.
 ## En local
 
 Le mot de passe est dans `.env` (`ADMIN_PASSWORD`). `npm run dev`, puis http://localhost:4321/admin.
-Le serveur de dev tourne dans le moteur de Cloudflare (workerd) : KV, R2 et D1 sont simulés dans `.wrangler/state`.
+Le serveur de dev tourne dans le moteur de Cloudflare (workerd) : KV et D1 sont simulés dans `.wrangler/state`.
 Les visites faites avec curl ou un navigateur headless sont ignorées par les statistiques (considérées comme des robots).
 
 ## Mise en ligne (Cloudflare Workers)
@@ -32,7 +32,7 @@ Les visites faites avec curl ou un navigateur headless sont ignorées par les st
 Le repo GitHub est relié au Worker `keyato-industries` (Workers Builds) : chaque push sur `main` redéploie.
 
 - Commande de build : `npm run build` ; commande de déploiement : `npx wrangler deploy`.
-- L'espace KV `SITE`, le bucket R2 `MEDIA` et la base D1 `STATS` sont créés automatiquement au premier déploiement (pas d'identifiant dans `wrangler.jsonc`). Si la création échoue, les créer à la main dans le dashboard (*Storage & databases*) et ajouter leur `id` / nom dans `wrangler.jsonc`.
+- L'espace KV `SITE` et la base D1 `STATS` ont été créés automatiquement aux premiers déploiements ; la base D1 est épinglée par son identifiant dans `wrangler.jsonc`.
 - `ADMIN_PASSWORD` : *Settings → Variables and Secrets* du Worker, de préférence en type *Secret*. `keep_vars` évite qu'un déploiement l'efface.
 - Après un changement de `wrangler.jsonc`, relancer `npm run cf-typegen`.
 - Une modification faite dans l'admin peut mettre jusqu'à une minute à apparaître partout dans le monde (propagation de KV).

@@ -1,14 +1,14 @@
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
 import { isLoggedIn } from '../../lib/auth';
 import { imageSlots } from '../../lib/content';
+import { deleteMedia, putMedia } from '../../lib/media';
 import { getSite, saveSite } from '../../lib/site';
 
 export const prerender = false;
 
 /*
  * Envoi d'une image depuis l'onglet Images de l'admin. Le navigateur l'a déjà redimensionnée et convertie
- * (une déclinaison par largeur, champs « w<largeur> ») : on les range dans R2 et on met à jour le contenu.
+ * (une déclinaison par largeur, champs « w<largeur> ») : on les range (src/lib/media.ts) et on met à jour le contenu.
  * action=reset : retour à l'image d'origine.
  */
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	if (form.get('action') === 'reset') {
 		delete site.images[slot.key];
 		await saveSite(site);
-		if (previous) await env.MEDIA.delete(previous.variants.map((variant) => variant.key));
+		if (previous) await deleteMedia(previous.variants.map((variant) => variant.key));
 		return Response.json({ ok: true });
 	}
 
@@ -52,14 +52,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 	const variants = await Promise.all(
 		files.map(async ({ w, file }) => {
 			const key = `img/${slot.key}/${stamp}-${w}.${TYPES[file.type]}`;
-			await env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+			await putMedia(key, await file.arrayBuffer(), file.type);
 			return { w, key };
 		}),
 	);
 
 	site.images[slot.key] = { width, height, variants: variants.sort((a, b) => a.w - b.w) };
 	await saveSite(site);
-	if (previous) await env.MEDIA.delete(previous.variants.map((variant) => variant.key));
+	if (previous) await deleteMedia(previous.variants.map((variant) => variant.key));
 
 	return Response.json({ ok: true });
 };
